@@ -1,65 +1,54 @@
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import getSupabaseServer from "@/lib/supabase-server";
+
+type ChangePasswordBody = {
+  currentPassword?: string;
+  newPassword?: string;
+};
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { currentPassword, newPassword } = body;
+    const body = (await request.json()) as ChangePasswordBody;
+    const currentPassword = body.currentPassword?.trim();
+    const newPassword = body.newPassword;
 
     if (!currentPassword || !newPassword) {
       return Response.json({ error: "Vui lòng điền đầy đủ thông tin" }, { status: 400 });
     }
 
-    // Get session from cookies and create Supabase client
-    const cookieStore = await cookies();
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            cookie: Array.from(cookieStore.getAll())
-              .map(({ name, value }) => `${name}=${value}`)
-              .join("; "),
-          },
-        },
-      }
-    );
-
-    // Get current user
+    const supabase = await getSupabaseServer();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) {
+    if (!user?.email) {
       return Response.json({ error: "Không được xác thực" }, { status: 401 });
     }
 
-    // Verify current password by attempting to sign in
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user.email!,
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase not configured on server");
+    }
+
+    const verificationClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error: signInError } = await verificationClient.auth.signInWithPassword({
+      email: user.email,
       password: currentPassword,
     });
-
     if (signInError) {
       return Response.json({ error: "Mật khẩu hiện tại không chính xác" }, { status: 401 });
     }
 
-    // Update password
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     if (updateError) {
-      console.error("[ChangePassword]", updateError);
-      return Response.json(
-        { error: updateError.message || "Không thể thay đổi mật khẩu" },
-        { status: 400 }
-      );
+      return Response.json({ error: updateError.message }, { status: 400 });
     }
 
     return Response.json({ success: true });
   } catch (error) {
-    console.error("[ChangePassword]", error);
-    return Response.json({ error: "Lỗi máy chủ" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Lỗi máy chủ";
+    return Response.json({ error: message }, { status: 500 });
   }
 }

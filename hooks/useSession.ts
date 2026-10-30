@@ -8,10 +8,10 @@ export type SessionUser = {
 
 export type SessionInfo = {
   user: SessionUser | null;
-  hasCC?: boolean;
-  hasSchoolScope?: boolean;
+  displayName?: string | null;
+  isAdmin?: boolean;
+  isParticipant?: boolean;
   hasOlympiaAccess?: boolean;
-  ccClassId?: string | null;
   roles?: string[];
 };
 
@@ -110,16 +110,10 @@ export function useSession(): UseSessionResult {
       const json = await fetchSessionShared(force);
       setData(json);
       hasDataRef.current = true;
-      if (json) {
-        try {
-          localStorage.setItem("edu-sync-session", JSON.stringify(json));
-        } catch {}
-      }
     } catch (err) {
       const errorObj = err instanceof Error ? err : new Error("Unknown error");
       setIsError(true);
       setError(errorObj);
-      // Nếu fetch fail nhưng đã có cache (localStorage/shared), vẫn giữ lại.
       setData((prev) => prev);
     } finally {
       setIsLoading(false);
@@ -128,17 +122,6 @@ export function useSession(): UseSessionResult {
   }, []);
 
   useEffect(() => {
-    // Hydrate from localStorage to avoid sidebar flash
-    try {
-      const cached = localStorage.getItem("edu-sync-session");
-      if (cached) {
-        const parsed = JSON.parse(cached) as SessionInfo;
-        setData(parsed);
-        hasDataRef.current = true;
-        setIsLoading(false);
-      }
-    } catch {}
-
     // Không force fetch ở mount để tránh spam /api/session khi route refresh.
     // fetchSessionShared() sẽ trả cache nhanh nếu còn trong MIN_FETCH_INTERVAL.
     fetchSession(false);

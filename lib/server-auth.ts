@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import getSupabaseServer from "@/lib/supabase-server";
 import { cache } from "react";
 
@@ -16,45 +15,10 @@ export const getServerSupabase = async () => {
 
 export const getServerAuthContext = cache(async (): Promise<ServerAuthContext> => {
   const supabase = await getSupabaseServer();
+  const { data } = await supabase.auth.getUser();
+  const authUid = data.user?.id ?? null;
 
-  const cookieStore = await cookies();
-  const token =
-    cookieStore.get("sb-access-token")?.value ??
-    cookieStore.get("sb-access-token-public")?.value ??
-    null;
-
-  let authUid: string | null = null;
-
-  if (token) {
-    try {
-      const payload = token.split(".")[1];
-      const json = Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString(
-        "utf8"
-      );
-      const parsed = JSON.parse(json);
-      authUid = typeof parsed?.sub === "string" ? parsed.sub : null;
-    } catch {}
-  }
-
-  // ❗ fallback cực hạn chế
-  if (!authUid) {
-    const { data } = await supabase.auth.getUser();
-    authUid = data?.user?.id ?? null;
-  }
-
-  let appUserId: string | null = null;
-
-  if (authUid) {
-    const { data } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_uid", authUid)
-      .maybeSingle();
-
-    appUserId = (data?.id as string | undefined) ?? null;
-  }
-
-  return { supabase, authUid, appUserId };
+  return { supabase, authUid, appUserId: authUid };
 });
 
 export type RoleRow = {

@@ -3,7 +3,7 @@ import { getServerAuthContext } from "@/lib/server-auth";
 export type OlympiaParticipant = {
   user_id: string;
   contestant_code: string | null;
-  role: string | null;
+  is_active: boolean;
 };
 
 export type OlympiaRoleSummary =
@@ -13,14 +13,14 @@ export type OlympiaRoleSummary =
   | "olympia-guest";
 
 export const getOlympiaParticipant = async (): Promise<OlympiaParticipant | null> => {
-  const { supabase, appUserId } = await getServerAuthContext();
-  if (!appUserId) return null;
+  const { supabase, authUid } = await getServerAuthContext();
+  if (!authUid) return null;
 
-  const olympia = supabase.schema("olympia");
-  const { data, error } = await olympia
+  const { data, error } = await supabase
+    .schema("olympia")
     .from("participants")
-    .select("user_id, contestant_code, role")
-    .eq("user_id", appUserId)
+    .select("user_id, contestant_code, is_active")
+    .eq("user_id", authUid)
     .maybeSingle();
 
   if (error || !data) return null;
@@ -28,19 +28,42 @@ export const getOlympiaParticipant = async (): Promise<OlympiaParticipant | null
 };
 
 export async function ensureOlympiaAdminAccess() {
-  const participant = await getOlympiaParticipant();
-  if (!participant || participant.role !== "AD") {
-    throw new Error("FORBIDDEN_OLYMPIA_ADMIN");
-  }
-  return participant;
+  const { supabase, authUid } = await getServerAuthContext();
+  if (!authUid) throw new Error("FORBIDDEN_OLYMPIA_ADMIN");
+
+  const { data, error } = await supabase
+    .schema("olympia")
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", authUid)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (error || !data) throw new Error("FORBIDDEN_OLYMPIA_ADMIN");
+  return data;
 }
 
 export async function summarizeOlympiaRole(): Promise<OlympiaRoleSummary> {
-  const participant = await getOlympiaParticipant();
-  if (!participant) return "olympia-guest";
+  const { supabase, authUid } = await getServerAuthContext();
+  if (!authUid) return "olympia-guest";
 
-  if (participant.role === "AD") return "olympia-admin";
-  if (participant.role === "MC") return "olympia-mc";
-  if (participant.contestant_code) return "olympia-player";
+  const { data: adminRole } = await supabase
+    .schema("olympia")
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", authUid)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (adminRole) return "olympia-admin";
+
+  const { data: participant } = await supabase
+    .schema("olympia")
+    .from("participants")
+    .select("user_id, contestant_code, is_active")
+    .eq("user_id", authUid)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (participant?.contestant_code) return "olympia-player";
   return "olympia-guest";
 }

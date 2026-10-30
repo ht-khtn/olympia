@@ -1,7 +1,7 @@
 import LoginForm from "@/components/login/LoginForm";
 
 export const metadata = {
-  title: "Đăng nhập — EduSync",
+  title: "Đăng nhập — Olympia",
 };
 
 export default function LoginPageContent() {
