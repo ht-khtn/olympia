@@ -1,277 +1,198 @@
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { ensureOlympiaAdminAccess } from '@/lib/olympia-access'
-import { getServerAuthContext } from '@/lib/server-auth'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Separator } from '@/components/ui/separator'
-import { CreateParticipantDialog } from '@/components/olympia/admin/accounts/CreateParticipantDialog'
-import { EditParticipantDialog } from '@/components/olympia/admin/accounts/EditParticipantDialog'
-import { DeleteParticipantButton } from '@/components/olympia/admin/accounts/DeleteParticipantButton'
-import { cn } from '@/utils/cn'
+import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
+import { requireOlympiaAdminContext } from "@/lib/olympia/olympia-auth";
+import getOlympiaAdminClient from "@/lib/olympia/olympia-admin-client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { CreateAccountDialog } from "@/components/olympia/admin/accounts/CreateAccountDialog";
+import { EditAccountDialog, type OlympiaAccount } from "@/components/olympia/admin/accounts/EditAccountDialog";
+import { cn } from "@/utils/cn";
 
-// ISR: Participant list. Revalidate every 30s.
-export const revalidate = 30
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
+const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 const filterOptions = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'admin', label: 'Admin' },
-  { id: 'contestant', label: 'Thí sinh' },
-  { id: 'other', label: 'Khác' },
-] as const
+  { id: "all", label: "Tất cả" },
+  { id: "admin", label: "Admin" },
+  { id: "contestant", label: "Thí sinh" },
+  { id: "other", label: "Khác" },
+] as const;
 
-type FilterOption = (typeof filterOptions)[number]['id']
+type FilterOption = (typeof filterOptions)[number]["id"];
 
+type ProfileRow = { user_id: string; display_name: string | null };
+type RoleRow = { user_id: string; role: string };
 type ParticipantRow = {
-  user_id: string
-  contestant_code: string | null
-  role: string | null
-  created_at: string | null
-}
-
-type UserProfileRow = {
-  full_name: string | null
-} | null
-
-type UserRow = {
-  id: string
-  user_name: string | null
-  email: string | null
-  class_id: string | null
-  user_profiles: UserProfileRow | UserProfileRow[] | null
-}
+  user_id: string;
+  contestant_code: string | null;
+  is_active: boolean;
+};
 
 type AccountsPageProps = {
-  searchParams?: Promise<{
-    role?: string
-  }>
-}
+  searchParams?: Promise<{ role?: string }>;
+};
 
-function resolveProfileName(user: UserRow | undefined) {
-  if (!user) return '—'
-  if (Array.isArray(user.user_profiles)) {
-    return user.user_profiles[0]?.full_name ?? user.user_name ?? '—'
+async function listAllAuthUsers() {
+  const admin = getOlympiaAdminClient();
+  const users: User[] = [];
+  let page = 1;
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    users.push(...data.users);
+    if (data.users.length < 1000) break;
+    page += 1;
   }
-  return user.user_profiles?.full_name ?? user.user_name ?? '—'
+  return users;
 }
 
-function resolveRoleCategory(participant: ParticipantRow): FilterOption {
-  if (participant.role === 'AD') return 'admin'
-  if (participant.role && participant.role !== 'AD') return 'other'
-  if (participant.contestant_code) return 'contestant'
-  return 'other'
+function category(account: OlympiaAccount): FilterOption {
+  if (account.isAdmin) return "admin";
+  if (account.isParticipant) return "contestant";
+  return "other";
 }
 
 export default async function OlympiaAdminAccountsPage({ searchParams }: AccountsPageProps) {
-  const authContext = await getServerAuthContext()
-  if (!authContext.appUserId) {
-    notFound()
-  }
-  await ensureOlympiaAdminAccess()
+  await requireOlympiaAdminContext();
+  const admin = getOlympiaAdminClient();
+  const users = await listAllAuthUsers();
+  const userIds = users.map((user) => user.id);
+  const olympia = admin.schema("olympia");
 
-  const olympia = authContext.supabase.schema('olympia')
-  const { data: participants, error: participantsError } = await olympia
-    .from('participants')
-    .select('user_id, contestant_code, role, created_at')
-    .order('created_at', { ascending: false })
-    .limit(200)
+  const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, { data: participants, error: participantsError }] =
+    await Promise.all([
+      userIds.length
+        ? olympia.from("profiles").select("user_id, display_name").in("user_id", userIds)
+        : Promise.resolve({ data: [], error: null }),
+      userIds.length
+        ? olympia.from("user_roles").select("user_id, role").in("user_id", userIds)
+        : Promise.resolve({ data: [], error: null }),
+      userIds.length
+        ? olympia
+            .from("participants")
+            .select("user_id, contestant_code, is_active")
+            .in("user_id", userIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-  if (participantsError) {
-    console.error('[Olympia] load participants failed', participantsError.message)
-  }
+  const queryError = profilesError ?? rolesError ?? participantsError;
+  if (queryError) throw new Error(queryError.message);
 
-  const participantRows: ParticipantRow[] = participants ?? []
-  const userIds = participantRows.map((row) => row.user_id)
-  const usersMap = new Map<string, UserRow>()
+  const profileMap = new Map((profiles as ProfileRow[]).map((row) => [row.user_id, row]));
+  const adminIds = new Set(
+    (roles as RoleRow[]).filter((row) => row.role === "admin").map((row) => row.user_id)
+  );
+  const participantMap = new Map(
+    (participants as ParticipantRow[]).map((row) => [row.user_id, row])
+  );
 
-  if (userIds.length > 0) {
-    const { data: usersData } = await authContext.supabase
-      .from('users')
-      .select('id, user_name, email, class_id, user_profiles(full_name)')
-      .in('id', userIds)
-    for (const user of usersData ?? []) {
-      usersMap.set(user.id, user)
-    }
-  }
+  const accounts: OlympiaAccount[] = users.map((user) => {
+    const participant = participantMap.get(user.id);
+    return {
+      userId: user.id,
+      email: user.email ?? "",
+      displayName: profileMap.get(user.id)?.display_name ?? "",
+      isAdmin: adminIds.has(user.id),
+      isParticipant: Boolean(participant),
+      isParticipantActive: participant?.is_active ?? false,
+      contestantCode: participant?.contestant_code ?? null,
+      emailConfirmedAt: user.email_confirmed_at ?? null,
+      createdAt: user.created_at,
+    };
+  });
 
-  // Load classes and all users for the "Add account" selector (limit to 2000)
-  const { data: classesData } = await authContext.supabase
-    .from('classes')
-    .select('id, name')
-    .order('name')
-
-  const { data: allUsersData } = await authContext.supabase
-    .from('users')
-    .select('id, user_name, email, class_id, user_profiles(full_name)')
-    .order('user_name')
-    .limit(2000)
-
-  const classesMap = new Map<string, string>()
-  for (const c of classesData ?? []) {
-    classesMap.set(c.id, c.name)
-  }
-
-  const totalAccounts = participantRows.length
-  const adminCount = participantRows.filter((row) => row.role === 'AD').length
-  const contestantCount = participantRows.filter((row) => row.role !== 'AD' && row.contestant_code).length
-
-  const params = await searchParams
-  const roleParam = params?.role
-  const filterValue: FilterOption =
-    roleParam && filterOptions.some((option) => option.id === roleParam) ? (roleParam as FilterOption) : 'all'
-
-  const rowsWithCategory = participantRows.map((row) => ({
-    ...row,
-    category: resolveRoleCategory(row),
-    user: usersMap.get(row.user_id),
-    userClassName: classesMap.get(usersMap.get(row.user_id)?.class_id ?? '') ?? null,
-  }))
-
-  const visibleRows = rowsWithCategory.filter((row) => (filterValue === 'all' ? true : row.category === filterValue))
+  const params = await searchParams;
+  const requestedFilter = params?.role;
+  const filterValue: FilterOption = filterOptions.some((option) => option.id === requestedFilter)
+    ? (requestedFilter as FilterOption)
+    : "all";
+  const visibleAccounts = accounts.filter(
+    (account) => filterValue === "all" || category(account) === filterValue
+  );
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs uppercase text-muted-foreground">Olympia</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Quản lý admin &amp; tài khoản thi</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Quản lý tài khoản Olympia</h1>
         </div>
-        <CreateParticipantDialog classes={classesData ?? []} users={allUsersData ?? []} />
+        <CreateAccountDialog />
       </div>
-      <p className="text-sm text-muted-foreground">
-        Hiển thị tối đa 200 bản ghi gần nhất từ bảng <code className="rounded bg-slate-100 px-1">olympia.participants</code>.
-      </p>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Tổng tài khoản</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{totalAccounts}</p>
-            <p className="text-xs text-muted-foreground">Kể cả admin, thí sinh, các quyền khác.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Olympia Admin</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{adminCount}</p>
-            <p className="text-xs text-muted-foreground">Role = AD</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Tài khoản thi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{contestantCount}</p>
-            <p className="text-xs text-muted-foreground">Có mã contestant_code</p>
-          </CardContent>
-        </Card>
+        <Card><CardHeader><CardTitle className="text-base">Tổng tài khoản</CardTitle></CardHeader><CardContent><p className="text-3xl font-semibold">{accounts.length}</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-base">Olympia Admin</CardTitle></CardHeader><CardContent><p className="text-3xl font-semibold">{accounts.filter((account) => account.isAdmin).length}</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-base">Tài khoản thi</CardTitle></CardHeader><CardContent><p className="text-3xl font-semibold">{accounts.filter((account) => account.isParticipant).length}</p></CardContent></Card>
       </div>
 
       <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="text-base">Lọc theo nhóm</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {filterOptions.map((option) => {
-              const href = option.id === 'all' ? '/olympia/admin/accounts' : `/olympia/admin/accounts?role=${option.id}`
-              const isActive = filterValue === option.id
-              return (
-                <Link
-                  key={option.id}
-                  href={href}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-sm transition-colors',
-                    isActive
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 text-muted-foreground hover:border-slate-400'
-                  )}
-                >
-                  {option.label}
-                </Link>
-              )
-            })}
-          </div>
+        <CardHeader><CardTitle className="text-base">Lọc theo nhóm</CardTitle></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {filterOptions.map((option) => (
+            <Link
+              key={option.id}
+              href={option.id === "all" ? "/olympia/admin/accounts" : `/olympia/admin/accounts?role=${option.id}`}
+              className={cn(
+                "rounded-full border px-3 py-1 text-sm transition-colors",
+                filterValue === option.id
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 text-muted-foreground hover:border-slate-400"
+              )}
+            >
+              {option.label}
+            </Link>
+          ))}
         </CardContent>
       </Card>
 
-      {participantsError ? (
-        <Alert variant="destructive">
-          <AlertDescription>Không thể tải danh sách participants: {participantsError.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {visibleRows.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Không có bản ghi phù hợp với bộ lọc hiện tại.
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Danh sách chi tiết</CardTitle>
-            <p className="text-xs text-muted-foreground">Bao gồm thông tin liên hệ và vai trò hiện tại.</p>
-          </CardHeader>
-          <Separator />
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Người dùng</TableHead>
-                  <TableHead>Mã thí sinh</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                  <TableHead>Ngày thêm</TableHead>
-                  <TableHead>Hành động</TableHead>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Danh sách tài khoản</CardTitle>
+          <p className="text-xs text-muted-foreground">Thông tin được lấy trực tiếp từ Supabase Auth và schema Olympia.</p>
+        </CardHeader>
+        <Separator />
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email / tên</TableHead>
+                <TableHead>Admin</TableHead>
+                <TableHead>Thí sinh</TableHead>
+                <TableHead>Email xác nhận</TableHead>
+                <TableHead>Ngày tạo</TableHead>
+                <TableHead>Hành động</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleAccounts.map((account) => (
+                <TableRow key={account.userId}>
+                  <TableCell>
+                    <div className="font-medium">{account.displayName || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{account.email}</div>
+                  </TableCell>
+                  <TableCell><Badge variant={account.isAdmin ? "default" : "secondary"}>{account.isAdmin ? "Admin" : "—"}</Badge></TableCell>
+                  <TableCell>
+                    {account.isParticipant ? (
+                      <div><Badge variant="secondary">{account.isParticipantActive ? "Đang hoạt động" : "Tạm khóa"}</Badge><div className="mt-1 font-mono text-xs">{account.contestantCode ?? "—"}</div></div>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">{account.emailConfirmedAt ? dateFormatter.format(new Date(account.emailConfirmedAt)) : "Chưa xác nhận"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{dateFormatter.format(new Date(account.createdAt))}</TableCell>
+                  <TableCell><EditAccountDialog account={account} /></TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleRows.map((row) => {
-                  const user = row.user
-                  const roleLabel = row.role === 'AD' ? 'Admin' : row.role ?? 'Thí sinh'
-                  return (
-                    <TableRow key={`${row.user_id}-${row.contestant_code ?? 'na'}`}>
-                      <TableCell>
-                        <div className="font-medium">{resolveProfileName(user)}</div>
-                        <div className="text-xs text-muted-foreground">{user?.email ?? '—'}</div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{row.contestant_code ?? '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant={row.role === 'AD' ? 'default' : 'secondary'}>{roleLabel}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {row.created_at ? dateFormatter.format(new Date(row.created_at)) : '—'}
-                      </TableCell>
-                      <TableCell className="flex gap-2">
-                        <EditParticipantDialog 
-                          userId={row.user_id}
-                          currentContestantCode={row.contestant_code}
-                          currentRole={row.role}
-                          userName={resolveProfileName(row.user)}
-                          userClassName={row.userClassName}
-                        />
-                        <DeleteParticipantButton userId={row.user_id} />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      )}
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
     </section>
-  )
+  );
 }
