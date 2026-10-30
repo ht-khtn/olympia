@@ -1,0 +1,37 @@
+CHỈ THỰC HIỆN TRONG WORKSPACE `D:\app\olympia`. Không sửa `D:\app\edu-sync`.
+
+Đây là đợt chỉnh sửa cơ học, ChatGPT đã xác định sẵn nội dung. Không tự phân tích kiến trúc, không quét repo, không đọc tài liệu dài, không tự mở rộng phạm vi.
+
+Sửa đúng các file sau:
+
+1. `package.json`: đổi duy nhất trường `name` thành `olympia-app`.
+2. `supabase/config.toml`: đổi `project_id = "edu-sync"` thành `project_id = "olympia"`. Giữ nguyên `api.schemas` hiện có (đã gồm `olympia`).
+3. `app/layout.tsx`:
+   - metadata `title`: `Olympia`.
+   - metadata `description`: `Nền tảng tổ chức và điều hành các cuộc thi Olympia trực tuyến.`
+   - `appleWebApp.title` và meta `apple-mobile-web-app-title`: `Olympia`.
+   - đổi `<html lang="en">` thành `lang="vi"`.
+   - sửa `manifest` từ `/manifest.webmanifest` thành `/manifest.json` vì file thật là `public/manifest.json`.
+   - Giữ nguyên các component PWA/offline/version đang import; chưa được xóa.
+4. `app/(olympia)/olympia/layout.tsx`: metadata title đổi thành `Olympia`; giữ description hiện có.
+5. `components/olympia/client/OlympiaClientNav.tsx` và `components/olympia/admin/layout/OlympiaAdminSidebar.tsx`: đổi đúng text branding `EduSync Olympia` thành `Olympia`.
+6. `public/manifest.json`: chỉ đổi `name` thành `Olympia — Cuộc thi tri thức`, `short_name` thành `Olympia`, `description` thành `Nền tảng tổ chức và điều hành các cuộc thi Olympia trực tuyến.`. Giữ nguyên các cấu hình khác.
+7. `.gitignore`: ngay dưới `!.env.example`, thêm `!.env.local.example` để file mẫu mới được Git track; vẫn phải ignore `.env.local` và các file env thật.
+8. Tạo `.env.local.example` đúng nội dung sau (không điền secret thật):
+
+```dotenv
+# Copy to .env.local and fill with values from the NEW Olympia Supabase project.
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_OLYMPIA_TRACE=0
+```
+
+Giới hạn:
+- Không sửa `package-lock.json` hoặc `pnpm-lock.yaml`; pnpm là package manager mục tiêu, lockfile sẽ được xử lý sau khi xác nhận dependency.
+- Không sửa `app/page.tsx`, `proxy.ts`, auth, actions, API, gameplay, migrations, SQL, RLS hay Realtime trong đợt này.
+- Không xóa route/file/thư mục, không xóa script version/PWA/offline.
+- Không tạo `.env.local`; không đọc/hiển thị bất kỳ secret nào.
+- Không cài package, không chạy build/lint/test, không chạy Supabase CLI/remote, không dùng Git, không commit.
+
+Kết thúc chỉ báo: đúng các file đã sửa/tạo, có mục nào không tìm thấy hay không, và không chạy kiểm thử. Không tự chuyển sang giai đoạn tiếp theo.

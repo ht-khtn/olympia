@@ -1,0 +1,201 @@
+export type LiveSessionRow = {
+  id: string;
+  match_id: string;
+  status: string;
+  join_code: string;
+  question_state: string | null;
+  current_round_id: string | null;
+  current_round_type: string | null;
+  current_round_question_id: string | null;
+  timer_deadline: string | null;
+  buzzer_enabled?: boolean;
+  requires_player_password?: boolean;
+  show_scoreboard_overlay?: boolean;
+  show_answers_overlay?: boolean;
+  guest_media_control?: {
+    version?: number;
+    audio?: {
+      commandId: number;
+      action: "play" | "pause" | "restart" | "stop";
+      issuedAt: string;
+      srcs?: string[];
+    };
+    video?: {
+      commandId: number;
+      action: "play" | "pause" | "restart" | "stop";
+      issuedAt: string;
+      srcs?: string[];
+    };
+  };
+};
+
+export type MatchRow = {
+  id: string;
+  name: string;
+  status: string;
+  scheduled_at: string | null;
+};
+
+export type PlayerRow = {
+  id: string;
+  match_id: string;
+  participant_id: string;
+  display_name: string | null;
+  seat_index: number;
+  is_disqualified_obstacle: boolean;
+};
+
+export type ScoreRow = {
+  id?: string;
+  match_id?: string;
+  player_id: string;
+  points: number | null;
+  round_type: string | null;
+};
+
+export type RoundQuestionRow = {
+  id: string;
+  match_round_id: string | null;
+  question_id: string | null;
+  question_set_item_id?: string | null;
+  order_index: number | null;
+  target_player_id: string | null;
+  meta?: Record<string, string | number | boolean | null> | null;
+  // Snapshot fields (ưu tiên hiển thị khi migrate sang question_set_items).
+  question_text?: string | null;
+  answer_text?: string | null;
+  note?: string | null;
+  // Tuỳ constraint/foreign key, Supabase có thể trả object hoặc mảng (dù logically là many-to-one).
+  questions?:
+    | {
+        id?: string | null;
+        code?: string | null;
+        category?: string | null;
+        question_text?: string | null;
+        answer_text?: string | null;
+        note?: string | null;
+        image_url?: string | null;
+        audio_url?: string | null;
+      }
+    | Array<{
+        id?: string | null;
+        code?: string | null;
+        category?: string | null;
+        question_text?: string | null;
+        answer_text?: string | null;
+        note?: string | null;
+        image_url?: string | null;
+        audio_url?: string | null;
+      }>
+    | null;
+
+  // Khi migrate sang question_set_items, media thường nằm ở đây.
+  question_set_items?:
+    | {
+        id?: string | null;
+        code?: string | null;
+        category?: string | null;
+        question_text?: string | null;
+        answer_text?: string | null;
+        note?: string | null;
+        image_url?: string | null;
+        audio_url?: string | null;
+      }
+    | Array<{
+        id?: string | null;
+        code?: string | null;
+        category?: string | null;
+        question_text?: string | null;
+        answer_text?: string | null;
+        note?: string | null;
+        image_url?: string | null;
+        audio_url?: string | null;
+      }>
+    | null;
+  // Supabase join có thể trả về object (many-to-one) hoặc mảng (tuỳ select/alias).
+  match_rounds?:
+    | {
+        match_id?: string | null;
+        round_type?: string | null;
+      }
+    | Array<{
+        match_id?: string | null;
+        round_type?: string | null;
+      }>
+    | null;
+};
+
+export type BuzzerEventRow = {
+  id?: string;
+  match_id?: string | null;
+  round_question_id?: string | null;
+  player_id?: string | null;
+  event_type?: string | null;
+  result?: string | null;
+  occurred_at?: string | null;
+};
+
+export type AnswerRow = {
+  id: string;
+  match_id?: string | null;
+  match_round_id?: string | null;
+  round_question_id: string;
+  player_id: string;
+  answer_text: string | null;
+  is_correct?: boolean | null;
+  points_awarded?: number | null;
+  response_time_ms?: number | null;
+  submitted_at?: string | null;
+};
+
+export type ObstacleRow = {
+  id: string;
+  match_round_id: string;
+  title: string | null;
+  final_keyword: string;
+  image_url: string | null;
+  meta?: Record<string, unknown> | null;
+};
+
+export type ObstacleTileRow = {
+  id: string;
+  obstacle_id: string;
+  round_question_id: string | null;
+  position_index: number;
+  is_open: boolean;
+};
+
+export type ObstacleGuessRow = {
+  id: string;
+  obstacle_id: string;
+  player_id: string;
+  guess_text: string;
+  is_correct: boolean;
+  attempt_order: number | null;
+  attempted_at: string;
+};
+
+export type StarUseRow = {
+  id: string;
+  match_id: string;
+  round_question_id: string;
+  player_id: string;
+  outcome: string | null;
+  declared_at: string;
+};
+
+export type GameSessionPayload = {
+  session: LiveSessionRow;
+  match: MatchRow;
+  players: PlayerRow[];
+  scores: ScoreRow[];
+  roundQuestions: RoundQuestionRow[];
+  buzzerEvents: BuzzerEventRow[];
+  answers?: AnswerRow[];
+  starUses?: StarUseRow[];
+  obstacle?: ObstacleRow | null;
+  obstacleTiles?: ObstacleTileRow[];
+  obstacleGuesses?: ObstacleGuessRow[];
+  serverTimestamp: string;
+  viewerUserId: string | null;
+};

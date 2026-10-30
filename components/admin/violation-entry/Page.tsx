@@ -1,0 +1,225 @@
+import { ViolationForm } from "@/components/admin/violation/ViolationForm";
+import RecentRecordsList from "@/components/admin/violation/RecentRecordsList";
+import {
+  fetchCriteriaFromDB,
+  fetchStudentsFromDB,
+  type Criteria,
+  type Student,
+} from "@/lib/violations";
+import { getServerAuthContext } from "@/lib/server-auth";
+import { getAllowedClassIdsForWrite } from "@/lib/rbac";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Natural (numeric-aware) comparator so class names like 10A9 sort before 10A10
+function naturalCompare(a: string | null | undefined, b: string | null | undefined) {
+  const sa = String(a ?? '')
+  const sb = String(b ?? '')
+  const re = /(\d+|\D+)/g
+  const ta = sa.match(re) || []
+  const tb = sb.match(re) || []
+  const len = Math.max(ta.length, tb.length)
+  for (let i = 0; i < len; i++) {
+    const pa = ta[i] || ''
+    const pb = tb[i] || ''
+    const na = pa.match(/^\d+$/)
+    const nb = pb.match(/^\d+$/)
+    if (na && nb) {
+      const da = Number(pa)
+      const db = Number(pb)
+      if (da !== db) return da - db
+    } else if (pa !== pb) {
+      return pa.localeCompare(pb, undefined, { numeric: true, sensitivity: 'base' })
+    }
+  }
+  return 0
+}
+
+export default async function ViolationEntryPageContent() {
+  const { supabase: supabaseServer, appUserId } = await getServerAuthContext();
+  const criteria: Criteria[] = await fetchCriteriaFromDB(supabaseServer);
+  let effectiveStudents: Student[] = [];
+  const allowedClasses: { id: string; name: string }[] = [];
+
+  // Fetch all students in chunks to support large cohorts (e.g., 1,200+)
+  async function fetchAllStudents(classFilterSet: Set<string> | null, pageSize = 500) {
+    const aggregated: Student[] = [];
+    let total = 0;
+    let offset = 0;
+
+    console.log('[violation-entry] fetchAllStudents: classFilterSet=', classFilterSet === null ? 'NULL (all)' : `Set(${classFilterSet?.size ?? 0})`);
+
+    while (true) {
+      const batch = await fetchStudentsFromDB(
+        supabaseServer,
+        undefined,
+        classFilterSet === null ? null : classFilterSet || undefined,
+        pageSize,
+        offset
+      );
+
+      console.log('[violation-entry] fetchAllStudents chunk offset=', offset, 'batch.students=', batch.students.length, 'batch.total=', batch.total);
+
+      total = batch.total ?? total;
+      aggregated.push(...batch.students.map((s) => ({
+        ...s,
+        class_name: '', // placeholder, will map after fetching classes
+      })));
+
+      offset += pageSize;
+      if (!batch.students.length || aggregated.length >= total) break;
+    }
+
+    console.log('[violation-entry] fetchAllStudents complete: aggregated=', aggregated.length, 'total=', total);
+    return { students: aggregated, total };
+  }
+  try {
+    if (supabaseServer && appUserId) {
+      const { data: classes } = await supabaseServer
+        .from("classes")
+        .select("id,name");
+
+      const classMap = new Map<string, string>();
+      for (const c of classes || []) classMap.set(String(c.id), c.name);
+
+      const allowedSet = await getAllowedClassIdsForWrite(
+        supabaseServer,
+        appUserId
+      );
+
+      // allowedSet === null means user can access all classes
+      if (allowedSet === null) {
+        for (const c of classes || [])
+          allowedClasses.push({ id: String(c.id), name: c.name });
+      } else if (allowedSet.size > 0) {
+        for (const id of Array.from(allowedSet)) {
+          const name = classMap.get(id) ?? id;
+          allowedClasses.push({ id, name });
+        }
+      }
+
+      // Sort classes in a natural / numeric-aware order so that e.g. 10A9 comes before 10A10
+      allowedClasses.sort((x, y) => naturalCompare(x?.name, y?.name));
+
+      console.log('[violation-entry] allowedClasses count:', allowedClasses.length, 'allowedSet:', allowedSet === null ? 'NULL (all)' : `Set(${allowedSet.size})`);
+
+      // Fetch students directly by allowed class IDs (users.class_id), chunked
+      const classFilterSet = allowedSet;
+      try {
+        const result = await fetchAllStudents(classFilterSet, 500);
+
+        if (Array.isArray(result.students) && result.students.length > 0) {
+          effectiveStudents = result.students.map((s) => ({
+            ...s,
+            class_name: classMap.get(s.class_id) ?? "",
+          }));
+        }
+      } catch (error) {
+        console.error('[violation-entry] Failed to fetch students:', error);
+      }
+
+      console.log('[violation-entry] Fetched students:', effectiveStudents.length);
+
+      // Fallback: if không có học sinh, thử bỏ filter lớp để kiểm tra dữ liệu
+      if (!effectiveStudents.length) {
+        try {
+          const fallback = await fetchAllStudents(null, 500);
+
+          if (fallback.students?.length) {
+            effectiveStudents = fallback.students.map((s) => ({
+              ...s,
+              class_name: classMap.get(s.class_id) ?? "",
+            }));
+            console.log('[violation-entry] Fallback fetched students:', effectiveStudents.length);
+          } else {
+            console.warn('[violation-entry] Fallback also returned 0 students');
+          }
+        } catch (fallbackError) {
+          console.error('[violation-entry] Fallback fetch failed:', fallbackError);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('[violation-entry] Setup error', error)
+  }
+
+  return (
+    <div className="space-y-6" suppressHydrationWarning>
+      <div suppressHydrationWarning>
+        <h1 className="text-3xl font-bold tracking-tight">Ghi nhận vi phạm</h1>
+        <p className="text-muted-foreground mt-1">
+          Danh sách các lỗi vi phạm được ghi nhận trong ngày.
+        </p>
+      </div>
+
+      <Card className="shadow-sm">
+        <CardHeader className="border-b bg-muted/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-semibold">
+                Ghi nhận hôm nay
+              </CardTitle>
+              <CardDescription>
+                Các vi phạm được ghi nhận trong ngày
+              </CardDescription>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" className="shadow-sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm ghi nhận
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Thêm lỗi vi phạm</DialogTitle>
+                  <DialogDescription>
+                    Điền thông tin để ghi nhận vi phạm mới.
+                  </DialogDescription>
+                </DialogHeader>
+                <ViolationForm
+                  students={effectiveStudents}
+                  criteria={criteria}
+                  allowedClasses={allowedClasses}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pt-6">
+          <Suspense fallback={<RecentRecordsSkeleton />}>
+            <RecentRecordsList />
+          </Suspense>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function RecentRecordsSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-md" />
+      ))}
+    </div>
+  );
+}
