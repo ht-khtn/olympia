@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
 import { requireOlympiaAdminContext } from '@/lib/olympia/olympia-auth'
 import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 
@@ -16,6 +17,7 @@ type QuestionRow = {
   answer_text: string
   note: string | null
   created_at: string
+  question_sets?: { name: string } | { name: string }[] | null
 }
 
 type QuestionSetRow = {
@@ -29,23 +31,32 @@ type QuestionSetRow = {
 const dateFormatter = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' })
 const formatDate = (value: string) => dateFormatter.format(new Date(value))
 
-async function fetchQuestionBank() {
+async function fetchQuestionBank(search: string, category: string) {
   const olympia = getOlympiaAdminClient().schema('olympia')
   const { data, error, count } = await olympia
     .from('question_set_items')
-    .select('id, code, category, question_text, answer_text, note, created_at, question_set_id', { count: 'exact' })
+    .select('id, code, category, question_text, answer_text, note, created_at, question_set_id, question_sets(name)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .limit(50)
 
   if (error) throw error
 
+  const filteredQuestions = (data ?? []).filter((question) => {
+    const term = search.trim().toLowerCase()
+    const matchesSearch = !term || [question.code, question.question_text, question.answer_text]
+      .filter((value): value is string => typeof value === 'string')
+      .some((value) => value.toLowerCase().includes(term))
+    const matchesCategory = !category || (question.category ?? 'uncategorized') === category
+    return matchesSearch && matchesCategory
+  })
+
   return {
     total: count ?? data?.length ?? 0,
-    questions: data ?? [],
+    questions: filteredQuestions,
   }
 }
 
-async function fetchQuestionSets() {
+async function fetchQuestionSets(search: string) {
   {
     const olympia = getOlympiaAdminClient().schema('olympia')
     const { data, error } = await olympia
@@ -55,7 +66,8 @@ async function fetchQuestionSets() {
       .limit(30)
 
     if (error) throw error
-    return data ?? []
+    const term = search.trim().toLowerCase()
+    return (data ?? []).filter((set) => !term || set.name.toLowerCase().includes(term) || (set.original_filename ?? '').toLowerCase().includes(term))
   }
 }
 
@@ -80,21 +92,47 @@ function CategoryBadges({ questions }: { questions: QuestionRow[] }) {
   )
 }
 
-export default async function OlympiaQuestionBankPage() {
+export default async function OlympiaQuestionBankPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; category?: string }>
+}) {
   await requireOlympiaAdminContext()
-  const [{ total, questions }, questionSets] = await Promise.all([fetchQuestionBank(), fetchQuestionSets()])
+  const params = await searchParams
+  const search = params?.q ?? ''
+  const category = params?.category ?? ''
+  const [{ total, questions }, questionSets] = await Promise.all([fetchQuestionBank(search, category), fetchQuestionSets(search)])
+  const categories = Array.from(new Set(questions.map((question) => question.category ?? 'uncategorized'))).sort()
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Bộ câu hỏi Olympia</h2>
-          <p className="text-sm text-muted-foreground">Hiển thị tối đa 50 câu mới nhất cho mục đích kiểm tra nhanh.</p>
+          <h2 className="text-2xl font-semibold tracking-tight">Ngân hàng câu hỏi</h2>
+          <p className="text-sm text-muted-foreground">Quản lý bộ đề V4(1), xem nhanh nội dung và chuẩn bị cho từng trận.</p>
         </div>
         <div className="flex gap-2">
           <UploadQuestionSetDialog />
         </div>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <form method="get" className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
+            <Input name="q" defaultValue={search} placeholder="Tìm theo tên bộ đề, mã hoặc nội dung câu hỏi..." />
+            <select name="category" defaultValue={category} className="h-10 rounded-md border bg-background px-3 text-sm">
+              <option value="">Tất cả chuyên mục</option>
+              {categories.map((value) => (
+                <option key={value} value={value}>{value === 'uncategorized' ? 'Chưa phân loại' : value}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Lọc</button>
+              {search || category ? <a href="/olympia/admin/question-bank" className="rounded-md border px-4 py-2 text-sm">Xóa lọc</a> : null}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -130,7 +168,8 @@ export default async function OlympiaQuestionBankPage() {
                   <TableHead>Tên bộ đề</TableHead>
                   <TableHead>Số câu</TableHead>
                   <TableHead>File gốc</TableHead>
-                  <TableHead>Thời gian</TableHead>
+                  <TableHead>Import lúc</TableHead>
+                  <TableHead>Trạng thái</TableHead>
                   <TableHead>Hành động</TableHead>
                 </TableRow>
               </TableHeader>
@@ -141,6 +180,11 @@ export default async function OlympiaQuestionBankPage() {
                     <TableCell>{set.item_count}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{set.original_filename ?? '—'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(set.created_at)}</TableCell>
+                    <TableCell>
+                      <Badge variant={set.item_count > 0 ? 'default' : 'secondary'}>
+                        {set.item_count > 0 ? 'Sẵn sàng' : 'Chưa có câu hỏi'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-2">
                         <ViewQuestionSetDialog
@@ -169,8 +213,8 @@ export default async function OlympiaQuestionBankPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>50 câu hỏi gần nhất</CardTitle>
-            <CardDescription>Danh sách có thể mở rộng thành data table có phân trang sau khi kết nối hoàn chỉnh.</CardDescription>
+            <CardTitle>{search || category ? 'Kết quả câu hỏi' : '50 câu hỏi gần nhất'}</CardTitle>
+            <CardDescription>{questions.length} câu hỏi đang hiển thị trong phạm vi dữ liệu tải về.</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>

@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { CreateAccountDialog } from "@/components/olympia/admin/accounts/CreateAccountDialog";
 import { EditAccountDialog, type OlympiaAccount } from "@/components/olympia/admin/accounts/EditAccountDialog";
 import { cn } from "@/utils/cn";
+import { Input } from "@/components/ui/input";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -36,7 +37,7 @@ type ParticipantRow = {
 };
 
 type AccountsPageProps = {
-  searchParams?: Promise<{ role?: string }>;
+  searchParams?: Promise<{ role?: string; q?: string; status?: string }>;
 };
 
 async function listAllAuthUsers() {
@@ -110,19 +111,28 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
 
   const params = await searchParams;
   const requestedFilter = params?.role;
+  const search = params?.q?.trim() ?? "";
+  const requestedStatus = params?.status;
   const filterValue: FilterOption = filterOptions.some((option) => option.id === requestedFilter)
     ? (requestedFilter as FilterOption)
     : "all";
-  const visibleAccounts = accounts.filter(
-    (account) => filterValue === "all" || category(account) === filterValue
-  );
+  const visibleAccounts = accounts.filter((account) => {
+    const matchesGroup = filterValue === "all" || category(account) === filterValue;
+    const haystack = `${account.displayName} ${account.email} ${account.contestantCode ?? ""}`.toLowerCase();
+    const matchesSearch = !search || haystack.includes(search.toLowerCase());
+    const matchesStatus = requestedStatus !== "active" && requestedStatus !== "inactive"
+      || (requestedStatus === "active" && account.isParticipant && account.isParticipantActive)
+      || (requestedStatus === "inactive" && account.isParticipant && !account.isParticipantActive);
+    return matchesGroup && matchesSearch && matchesStatus;
+  });
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs uppercase text-muted-foreground">Olympia</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Quản lý tài khoản Olympia</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Thí sinh &amp; tài khoản</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Tìm nhanh theo tên, email hoặc mã thí sinh; chỉnh sửa bằng chức năng hiện có.</p>
         </div>
         <CreateAccountDialog />
       </div>
@@ -135,11 +145,18 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
 
       <Card className="border-dashed">
         <CardHeader><CardTitle className="text-base">Lọc theo nhóm</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+        <CardContent className="space-y-3">
+          <form method="get" className="flex flex-col gap-2 sm:flex-row">
+            <Input name="q" defaultValue={search} placeholder="Tìm tên, email hoặc mã thí sinh..." />
+            {filterValue !== "all" ? <input type="hidden" name="role" value={filterValue} /> : null}
+            <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Tìm</button>
+            {search || requestedStatus ? <Link href="/olympia/admin/accounts" className="rounded-md border px-4 py-2 text-center text-sm">Xóa lọc</Link> : null}
+          </form>
+          <div className="flex flex-wrap gap-2">
           {filterOptions.map((option) => (
             <Link
               key={option.id}
-              href={option.id === "all" ? "/olympia/admin/accounts" : `/olympia/admin/accounts?role=${option.id}`}
+              href={option.id === "all" ? "/olympia/admin/accounts" : `/olympia/admin/accounts?role=${option.id}${search ? `&q=${encodeURIComponent(search)}` : ""}`}
               className={cn(
                 "rounded-full border px-3 py-1 text-sm transition-colors",
                 filterValue === option.id
@@ -150,13 +167,16 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
               {option.label}
             </Link>
           ))}
+          <Link href={`/olympia/admin/accounts?${filterValue !== "all" ? `role=${filterValue}&` : ""}status=active`} className={cn("rounded-full border px-3 py-1 text-sm", requestedStatus === "active" ? "border-green-600 bg-green-50 text-green-700" : "text-muted-foreground")}>Đang hoạt động</Link>
+          <Link href={`/olympia/admin/accounts?${filterValue !== "all" ? `role=${filterValue}&` : ""}status=inactive`} className={cn("rounded-full border px-3 py-1 text-sm", requestedStatus === "inactive" ? "border-amber-600 bg-amber-50 text-amber-700" : "text-muted-foreground")}>Tạm khóa</Link>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Danh sách tài khoản</CardTitle>
-          <p className="text-xs text-muted-foreground">Thông tin được lấy trực tiếp từ Supabase Auth và schema Olympia.</p>
+          <p className="text-xs text-muted-foreground">{visibleAccounts.length} tài khoản hiển thị · dữ liệu trực tiếp từ Supabase Auth và schema Olympia.</p>
         </CardHeader>
         <Separator />
         <div className="overflow-x-auto">
@@ -172,6 +192,9 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
               </TableRow>
             </TableHeader>
             <TableBody>
+              {visibleAccounts.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">Không tìm thấy tài khoản phù hợp.</TableCell></TableRow>
+              ) : null}
               {visibleAccounts.map((account) => (
                 <TableRow key={account.userId}>
                   <TableCell>

@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,7 +53,7 @@ async function fetchLiveSessionsData() {
   }
 
   if (matchesError) {
-    console.error('[Olympia] Failed to load matches:', matchesError.message)
+    throw matchesError
   }
 
   const matchLookup = new Map(
@@ -98,7 +97,7 @@ export default async function OlympiaAdminRoomsPage() {
   const data = await fetchLiveSessionsData()
 
   if (!data) {
-    notFound()
+    throw new Error('Không thể tải danh sách live session Olympia.')
   }
 
   const { sessions, matchLookup, playerCounts } = data
@@ -113,7 +112,7 @@ export default async function OlympiaAdminRoomsPage() {
         <p className="text-xs uppercase text-muted-foreground">Olympia</p>
         <h1 className="text-3xl font-bold tracking-tight">Quản lý phòng thi &amp; live session</h1>
         <p className="text-sm text-muted-foreground">
-          Xem danh sách tất cả các phòng thi đang mở, quản lý session và điều khiển trực tuyến.
+          Chọn đúng nhóm trạng thái để mở, theo dõi hoặc xem lại một phòng mà không mất dấu trận liên quan.
         </p>
       </div>
 
@@ -123,7 +122,7 @@ export default async function OlympiaAdminRoomsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Phòng đang mở</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{activeSessions.length}</div>
+            <div className="text-3xl font-bold text-green-700">{activeSessions.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {activeSessions.length === 1 ? '1 phòng' : `${activeSessions.length} phòng`} đang chạy
             </p>
@@ -135,7 +134,7 @@ export default async function OlympiaAdminRoomsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Chờ mở</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pendingSessions.length}</div>
+            <div className="text-3xl font-bold text-blue-700">{pendingSessions.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {pendingSessions.length === 1 ? '1 phòng' : `${pendingSessions.length} phòng`} chờ xử lý
             </p>
@@ -147,7 +146,7 @@ export default async function OlympiaAdminRoomsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Đã kết thúc</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{endedSessions.length}</div>
+            <div className="text-3xl font-bold text-slate-700">{endedSessions.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {endedSessions.length === 1 ? '1 phòng' : `${endedSessions.length} phòng`} đã xong
             </p>
@@ -194,7 +193,7 @@ export default async function OlympiaAdminRoomsPage() {
                         <TableCell className="font-medium">{match?.name ?? '—'}</TableCell>
                         <TableCell className="font-mono font-semibold text-green-700">
                           <div className="flex items-center gap-2 justify-start">
-                            <span className="font-mono">{session.join_code}</span>
+                            <span className="rounded bg-green-100 px-2 py-1 font-mono text-base tracking-wider">{session.join_code}</span>
                             <CopyRoomCodeButton code={session.join_code} title="Sao chép mã phòng" />
                           </div>
                         </TableCell>
@@ -280,7 +279,7 @@ export default async function OlympiaAdminRoomsPage() {
                         <TableCell className="font-medium">{match?.name ?? '—'}</TableCell>
                         <TableCell className="font-mono font-semibold">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono">{session.join_code}</span>
+                            <span className="rounded bg-blue-100 px-2 py-1 font-mono text-base tracking-wider">{session.join_code}</span>
                             <CopyRoomCodeButton code={session.join_code} title="Sao chép mã phòng" />
                           </div>
                         </TableCell>
@@ -389,6 +388,15 @@ export default async function OlympiaAdminRoomsPage() {
           </CardContent>
         </Card>
       )}
+
+      {endedSessions.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="font-medium">Chưa có phòng đã kết thúc</p>
+            <p className="mt-1 text-sm text-muted-foreground">Các session hoàn tất sẽ xuất hiện ở đây để xem lại trận.</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

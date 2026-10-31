@@ -18,6 +18,7 @@ export function ViewQuestionSetDialog({ questionSetId, questionSetName, itemCoun
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<QuestionSetItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open && items.length === 0) {
@@ -25,11 +26,14 @@ export function ViewQuestionSetDialog({ questionSetId, questionSetName, itemCoun
 
       const fetchItems = async () => {
         setLoading(true)
+        setError(null)
         try {
           const data = await getQuestionSetItems(questionSetId)
           if (!cancelled) {
             setItems(data)
           }
+        } catch (cause) {
+          if (!cancelled) setError(cause instanceof Error ? cause.message : 'Không thể tải nội dung bộ đề.')
         } finally {
           if (!cancelled) {
             setLoading(false)
@@ -46,7 +50,7 @@ export function ViewQuestionSetDialog({ questionSetId, questionSetName, itemCoun
   }, [open, questionSetId, items.length])
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) { setItems([]); setError(null) } }}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" aria-label="Xem nội dung">
           <Eye className="h-4 w-4" />
@@ -62,6 +66,10 @@ export function ViewQuestionSetDialog({ questionSetId, questionSetName, itemCoun
         <div className="space-y-4">
           {loading ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
+          ) : error ? (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              Không thể tải nội dung bộ đề: {error}
+            </div>
           ) : items.length === 0 ? (
             <p className="text-sm text-muted-foreground">Không có câu hỏi nào.</p>
           ) : (

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Upload } from 'tus-js-client'
+import { CheckCircle2, FileSpreadsheet, Loader2, UploadCloud } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,23 +32,26 @@ export function UploadQuestionSetDialog({ onDone }: Props) {
   const [media, setMedia] = useState<File[]>([])
   const [progress, setProgress] = useState<Progress[]>([])
   const [busy, setBusy] = useState(false)
+  const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const requiredNames = useMemo(() => new Set((preview?.mediaRequirements ?? []).map((entry) => entry.filename.toLowerCase())), [preview])
 
   function reset() {
-    setName(''); setXlsx(null); setPreview(null); setMedia([]); setProgress([]); setError(null); setBusy(false)
+    setName(''); setXlsx(null); setPreview(null); setMedia([]); setProgress([]); setError(null); setBusy(false); setParsing(false)
   }
 
   async function parseWorkbook(file: File) {
-    setError(null); setXlsx(file); setPreview(null)
+    setError(null); setXlsx(file); setPreview(null); setParsing(true)
     if (file.size > 5 * 1024 * 1024 || !file.name.toLowerCase().endsWith('.xlsx')) {
-      setError('Chỉ chấp nhận workbook .xlsx không quá 5 MiB.'); return
+      setError('Chỉ chấp nhận workbook .xlsx không quá 5 MiB.'); setParsing(false); return
     }
     try {
       const data = new FormData(); data.set('file', file)
       setPreview(await parseQuestionSetWorkbookAction(data))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể đọc workbook.')
+    } finally {
+      setParsing(false)
     }
   }
 
@@ -109,15 +113,23 @@ export function UploadQuestionSetDialog({ onDone }: Props) {
     <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) reset() }}>
       <DialogTrigger asChild><Button size="sm">Tạo bộ đề (.xlsx)</Button></DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Import bộ đề V4</DialogTitle><DialogDescription>Chọn workbook trước, sau đó chọn các media được workbook tham chiếu.</DialogDescription></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Import bộ đề V4(1)</DialogTitle>
+          <DialogDescription>Workbook được kiểm tra trước khi import. Quy tắc CODE, sheet và media vẫn do parser V4(1) hiện có xử lý.</DialogDescription>
+        </DialogHeader>
         <div className="space-y-4">
+          <div className="grid gap-2 rounded-lg border bg-slate-50 p-3 text-xs sm:grid-cols-3">
+            <div className="flex gap-2"><FileSpreadsheet className="h-4 w-4 text-primary" /><span>Chọn .xlsx tối đa 5 MiB</span></div>
+            <div className="flex gap-2"><UploadCloud className="h-4 w-4 text-primary" /><span>Bổ sung đúng media được tham chiếu</span></div>
+            <div className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /><span>Xem kết quả trước khi lưu</span></div>
+          </div>
           <div className="space-y-2"><Label htmlFor="question-set-name">Tên bộ đề</Label><Input id="question-set-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-          <div className="space-y-2"><Label htmlFor="question-workbook">Workbook .xlsx</Label><Input id="question-workbook" type="file" accept=".xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void parseWorkbook(file) }} /></div>
-          {preview && <div className="rounded border p-3 text-sm"><p>Hợp lệ: <b>{preview.items.length}</b> câu · Skip: <b>{preview.skipped.length}</b> · Media: <b>{preview.mediaRequirements.length}</b></p><p className="text-muted-foreground">{preview.items.map((item) => item.sheet).filter((sheet, index, list) => list.indexOf(sheet) === index).join(', ')}</p></div>}
+          <div className="space-y-2"><Label htmlFor="question-workbook">Workbook .xlsx</Label><Input id="question-workbook" type="file" accept=".xlsx" disabled={busy || parsing} onChange={(event) => { const file = event.target.files?.[0]; if (file) void parseWorkbook(file) }} />{parsing ? <p className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Đang kiểm tra workbook…</p> : null}</div>
+          {preview && <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm"><p className="font-medium text-green-900">Workbook đã được kiểm tra</p><p className="mt-1">Hợp lệ: <b>{preview.items.length}</b> câu · Bỏ qua: <b>{preview.skipped.length}</b> · Media cần chọn: <b>{preview.mediaRequirements.length}</b></p><p className="text-muted-foreground">Sheet: {preview.items.map((item) => item.sheet).filter((sheet, index, list) => list.indexOf(sheet) === index).join(', ')}</p></div>}
           {preview && <div className="space-y-2"><Label htmlFor="question-media">Media (chọn nhiều file)</Label><Input id="question-media" type="file" multiple onChange={(event) => setMedia(Array.from(event.target.files ?? []))} /><p className="text-xs text-muted-foreground">Không cần ZIP hoặc thư mục con. Chỉ upload file được workbook tham chiếu.</p></div>}
-          {progress.length > 0 && <div className="space-y-1 text-xs"><p>Tổng tiến độ: {Math.round(progress.reduce((sum, entry) => sum + entry.value, 0) / progress.length)}%</p>{progress.map((entry) => <div key={entry.name}><div className="flex justify-between"><span>{entry.name}</span><span>{entry.value}%</span></div><div className="h-1 rounded bg-muted"><div className="h-1 rounded bg-primary" style={{ width: `${entry.value}%` }} /></div></div>)}</div>}
-          {error && <p className={cn('text-sm', 'text-destructive')}>{error}</p>}
-          <div className="flex justify-end gap-2"><Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={busy}>Hủy</Button><Button type="button" onClick={() => void submit()} disabled={busy || !preview}>{busy ? 'Đang import…' : 'Import'}</Button></div>
+          {progress.length > 0 && <div className="space-y-1 text-xs"><p className="flex items-center gap-1 font-medium"> {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3 text-green-600" />} Tổng tiến độ: {Math.round(progress.reduce((sum, entry) => sum + entry.value, 0) / progress.length)}%</p>{progress.map((entry) => <div key={entry.name}><div className="flex justify-between"><span>{entry.name}</span><span>{entry.value}%</span></div><div className="h-1 rounded bg-muted"><div className="h-1 rounded bg-primary" style={{ width: `${entry.value}%` }} /></div></div>)}</div>}
+          {error && <div role="alert" className={cn('rounded-md bg-destructive/10 p-2 text-sm', 'text-destructive')}>{error}</div>}
+          <div className="flex justify-end gap-2"><Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={busy || parsing}>Hủy</Button><Button type="button" onClick={() => void submit()} disabled={busy || parsing || !preview}>{busy ? 'Đang import…' : 'Xác nhận import'}</Button></div>
         </div>
       </DialogContent>
     </Dialog>
