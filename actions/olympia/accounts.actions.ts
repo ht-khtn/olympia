@@ -105,6 +105,7 @@ export async function createOlympiaAccountAction(
 
   const userId = invited.user.id;
   const olympia = admin.schema("olympia");
+  let participantCreated = false;
   try {
     const { error: profileError } = await olympia
       .from("profiles")
@@ -118,6 +119,7 @@ export async function createOlympiaAccountAction(
         is_active: true,
       });
       if (error) throw error;
+      participantCreated = true;
     }
 
     if (payload.isAdmin) {
@@ -129,11 +131,32 @@ export async function createOlympiaAccountAction(
       if (error) throw error;
     }
   } catch (error) {
-    await admin.auth.admin.deleteUser(userId);
+    const originalError = isDuplicateError(error)
+      ? "Contestant code hoặc quyền tài khoản đã tồn tại."
+      : errorMessage(error, "Không thể hoàn tất dữ liệu tài khoản.");
+    const cleanupErrors: string[] = [];
+
+    if (participantCreated) {
+      const { error: participantCleanupError } = await olympia
+        .from("participants")
+        .delete()
+        .eq("user_id", userId);
+      if (participantCleanupError) {
+        cleanupErrors.push(
+          `Không thể cleanup participant: ${participantCleanupError.message}`
+        );
+      }
+    }
+
+    const { error: authCleanupError } = await admin.auth.admin.deleteUser(userId);
+    if (authCleanupError) {
+      cleanupErrors.push(`Không thể cleanup Auth user: ${authCleanupError.message}`);
+    }
+
+    const cleanupMessage =
+      cleanupErrors.length > 0 ? ` Cleanup thất bại: ${cleanupErrors.join(" ")}` : "";
     return {
-      error: isDuplicateError(error)
-        ? "Contestant code hoặc quyền tài khoản đã tồn tại."
-        : errorMessage(error, "Không thể hoàn tất dữ liệu tài khoản."),
+      error: `${originalError}${cleanupMessage}`,
     };
   }
 
