@@ -249,6 +249,14 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
     class_name?: string | null
   }
   const availableParticipants = (details.allParticipants ?? []) as ParticipantRow[]
+  const preparationSteps = [
+    { label: 'Bộ câu hỏi', complete: selectedQuestionSetIds.length > 0, href: '#question-sets' },
+    { label: '4 thí sinh / xếp ghế', complete: players.length === 4, href: '#players' },
+    { label: 'Cấu hình vòng', complete: rounds.length > 0, href: '#rounds' },
+    { label: 'Mở phòng', complete: liveSession?.status === 'running', href: '#live-session' },
+  ]
+  const completedSteps = preparationSteps.filter((step) => step.complete).length
+  const readyForRoom = preparationSteps.slice(0, 3).every((step) => step.complete)
 
   return (
     <section className="space-y-6">
@@ -284,17 +292,74 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
         </div>
       </div>
 
+      <Card className="border-primary/20 bg-primary/[0.03]">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Tiến độ chuẩn bị trận</CardTitle>
+              <CardDescription>
+                Hoàn thành {completedSteps}/{preparationSteps.length} bước trước khi chuyển sang giao diện MC.
+              </CardDescription>
+            </div>
+            {readyForRoom && liveSession?.status !== 'running' ? (
+              <Badge variant="outline" className="w-fit border-amber-300 bg-amber-50 text-amber-800">
+                Sẵn sàng mở phòng
+              </Badge>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-4">
+            {preparationSteps.map((step, index) => (
+              <a
+                key={step.label}
+                href={step.href}
+                className={`rounded-lg border p-3 transition-colors hover:border-primary/50 ${
+                  step.complete ? 'border-green-200 bg-green-50/70' : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                      step.complete ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {step.complete ? '✓' : index + 1}
+                  </span>
+                  <span className="text-sm font-medium">{step.label}</span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {step.complete ? 'Đã hoàn tất' : 'Cần xử lý'}
+                </p>
+              </a>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-2">
+        <Card id="live-session" className="scroll-mt-6 md:col-span-2">
           <CardHeader>
-            <CardTitle>Phiên live hiện tại</CardTitle>
+            <CardTitle className="flex items-center justify-between gap-3">
+              <span>4. Mở phòng và chuyển sang MC</span>
+              {liveSession?.status === 'running' ? <Badge className="bg-green-600">Đang mở</Badge> : null}
+            </CardTitle>
             <CardDescription>
-              Mở hoặc kết thúc phòng thi để cập nhật realtime cho thí sinh và khán phòng trực tuyến.
+              Chỉ mở phòng sau khi đã chọn bộ đề, đủ 4 thí sinh và có cấu hình vòng.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <LiveSessionControls matchId={match.id} liveSession={liveSession ?? undefined} />
+              {!readyForRoom && liveSession?.status !== 'running' ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Hoàn thành các bước chuẩn bị ở trên trước khi mở phòng để tránh thiếu cấu hình khi MC bắt đầu.
+                </div>
+              ) : null}
+              <LiveSessionControls
+                matchId={match.id}
+                liveSession={liveSession ?? undefined}
+                canOpen={readyForRoom}
+              />
               <ResetLiveSessionAndScoresButton matchId={match.id} action={resetLiveSessionAndScoresAction} />
             </div>
           </CardContent>
@@ -331,11 +396,14 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
         </div>
       </div>
 
-      <Card>
+      <Card id="players" className="scroll-mt-6">
         <CardHeader>
-          <CardTitle>Danh sách thí sinh</CardTitle>
+          <CardTitle className="flex items-center justify-between gap-3">
+            <span>2. Chọn 4 thí sinh và xếp ghế</span>
+            <Badge variant={players.length === 4 ? 'default' : 'secondary'}>{players.length}/4</Badge>
+          </CardTitle>
           <CardDescription>
-            Kéo và thả để sắp xếp thứ tự ghế (1-4). Thay đổi sẽ được lưu ngay khi bấm &quot;Lưu thứ tự&quot;.
+            Thêm thí sinh còn trống, sau đó kéo thả để sắp xếp thứ tự ghế 1-4.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -364,10 +432,15 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="question-sets" className="scroll-mt-6">
         <CardHeader>
-          <CardTitle>Bộ đề cho trận</CardTitle>
-          <CardDescription>Chọn một hoặc nhiều bộ đề đã tải lên. Thay đổi sẽ áp dụng ngay cho trận này.</CardDescription>
+          <CardTitle className="flex items-center justify-between gap-3">
+            <span>1. Chọn bộ câu hỏi</span>
+            <Badge variant={selectedQuestionSetIds.length > 0 ? 'default' : 'secondary'}>
+              {selectedQuestionSetIds.length} bộ đã chọn
+            </Badge>
+          </CardTitle>
+          <CardDescription>Chọn một hoặc nhiều bộ đề đã tải lên. Thay đổi áp dụng ngay cho trận này.</CardDescription>
         </CardHeader>
         <CardContent>
           <MatchQuestionSetSelector
@@ -378,9 +451,9 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="rounds" className="scroll-mt-6">
         <CardHeader>
-          <CardTitle>Cấu hình vòng thi</CardTitle>
+          <CardTitle>3. Kiểm tra cấu hình vòng thi</CardTitle>
           <CardDescription>Mỗi vòng tương ứng với cấu hình trong bảng olympia.match_rounds.</CardDescription>
         </CardHeader>
         <CardContent>

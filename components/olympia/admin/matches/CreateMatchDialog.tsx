@@ -39,8 +39,23 @@ export function CreateMatchDialog({ tournaments }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Tạo trận Olympia</DialogTitle>
-          <DialogDescription>Nhập thông tin cơ bản, sau đó bạn có thể bổ sung người chơi và vòng thi.</DialogDescription>
+          <DialogDescription>
+            Bắt đầu bằng thông tin trận. Sau khi lưu, bạn sẽ được đưa tới trang chuẩn bị để chọn bộ đề,
+            gán 4 thí sinh, kiểm tra vòng và mở phòng.
+          </DialogDescription>
         </DialogHeader>
+        <div className="grid grid-cols-4 gap-2 rounded-lg bg-slate-50 p-3 text-center text-xs">
+          {['Thông tin trận', 'Bộ câu hỏi', 'Thí sinh & ghế', 'Mở phòng'].map((step, index) => (
+            <div key={step} className="space-y-1">
+              <span className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                index === 0 ? 'bg-primary text-primary-foreground' : 'bg-white text-muted-foreground'
+              }`}>
+                {index + 1}
+              </span>
+              <p className={index === 0 ? 'font-medium text-slate-900' : 'text-muted-foreground'}>{step}</p>
+            </div>
+          ))}
+        </div>
         <CreateMatchForm key={nonce} tournaments={tournaments} onDone={handleDone} />
       </DialogContent>
     </Dialog>

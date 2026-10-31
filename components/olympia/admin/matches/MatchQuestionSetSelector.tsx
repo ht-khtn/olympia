@@ -46,7 +46,12 @@ export function MatchQuestionSetSelector({ matchId, questionSets, selectedIds }:
 
       <div className="space-y-2">
         {questionSets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa có bộ đề nào. Tải bộ đề ở trang Kho câu hỏi trước.</p>
+          <div className="rounded-lg border border-dashed p-4 text-sm">
+            <p className="font-medium text-slate-900">Chưa có bộ đề để chọn</p>
+            <p className="mt-1 text-muted-foreground">
+              Tải bộ đề ở trang Kho câu hỏi trước, sau đó quay lại trận này để gán.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
             {questionSets.map((set) => {

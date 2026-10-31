@@ -169,7 +169,7 @@ export default async function OlympiaMatchesAdminPage() {
         <Alert>
           <AlertTitle>Chưa có trận nào</AlertTitle>
           <AlertDescription>
-            Khi chạy migration olympia và chèn dữ liệu mẫu, danh sách trận sẽ hiển thị tại đây.
+            Tạo trận mới để bắt đầu chọn bộ đề, gán thí sinh và chuẩn bị phòng thi.
           </AlertDescription>
         </Alert>
       ) : (

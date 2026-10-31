@@ -33,6 +33,7 @@ type LiveSessionInfo = {
 type Props = {
   matchId: string
   liveSession?: LiveSessionInfo | null
+  canOpen?: boolean
 }
 
 function SubmitButton({ children, disabled, variant }: { children: ReactNode; disabled?: boolean; variant?: 'default' | 'secondary' | 'destructive' | 'outline' }) {
@@ -81,7 +82,7 @@ function PasswordDisplay({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function LiveSessionControls({ matchId, liveSession }: Props) {
+export function LiveSessionControls({ matchId, liveSession, canOpen = true }: Props) {
   const [openState, openAction] = useActionState(openLiveSessionAction, initialState)
   const [endState, endAction] = useActionState(endLiveSessionAction, initialState)
   const lastOpenToastRef = useRef<string | null>(null)
@@ -128,7 +129,7 @@ export function LiveSessionControls({ matchId, liveSession }: Props) {
 
   const { playerPassword, mcPassword } = extractPasswords(openState.success)
 
-  const disableOpen = liveSession?.status === 'running'
+  const disableOpen = liveSession?.status === 'running' || !canOpen
   const disableEnd = !liveSession || liveSession.status !== 'running'
 
   const statusText = liveSession?.status ? statusLabel[liveSession.status] ?? liveSession.status : 'Chưa mở'
@@ -153,7 +154,7 @@ export function LiveSessionControls({ matchId, liveSession }: Props) {
       <form action={openAction} className="space-y-2">
         <input type="hidden" name="matchId" value={matchId} />
         <SubmitButton disabled={disableOpen} variant="default">
-          {disableOpen ? 'Đang mở' : 'Mở phòng cho trận này'}
+          {liveSession?.status === 'running' ? 'Đang mở' : canOpen ? 'Mở phòng cho trận này' : 'Hoàn tất cấu hình để mở phòng'}
         </SubmitButton>
       </form>
 

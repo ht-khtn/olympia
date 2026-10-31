@@ -68,12 +68,12 @@ export function ViewQuestionSetDialog({ questionSetId, questionSetName, itemCoun
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">STT</TableHead>
-                  <TableHead className="w-[120px]">Mã</TableHead>
-                  <TableHead className="w-[140px]">Lĩnh vực</TableHead>
+                  <TableHead className="w-20">STT</TableHead>
+                  <TableHead className="w-30">Mã</TableHead>
+                  <TableHead className="w-35">Lĩnh vực</TableHead>
                   <TableHead>Câu hỏi</TableHead>
-                  <TableHead className="w-[200px]">Đáp án</TableHead>
-                  <TableHead className="w-[100px]">Media</TableHead>
+                  <TableHead className="w-50">Đáp án</TableHead>
+                  <TableHead className="w-25">Media</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
