@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { getServerAuthContext } from '@/lib/server-auth'
+import { requireOlympiaAdminContext } from '@/lib/olympia/olympia-auth'
+import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 import { Radio, Clock, Users, Eye, ExternalLink } from 'lucide-react'
 import { CopyRoomCodeButton } from '@/components/olympia/admin/matches/CopyRoomCodeButton'
 
 // ISR: Sessions update every 30s via realtime listener
-export const revalidate = 30
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const formatter = new Intl.DateTimeFormat('vi-VN', {
   dateStyle: 'short',
@@ -32,8 +34,8 @@ type MatchRow = {
 }
 
 async function fetchLiveSessionsData() {
-  const { supabase } = await getServerAuthContext()
-  const olympia = supabase.schema('olympia')
+  await requireOlympiaAdminContext()
+  const olympia = getOlympiaAdminClient().schema('olympia')
 
   // Fetch all live sessions
   const [{ data: sessions, error: sessionsError }, { data: matches, error: matchesError }] = await Promise.all([

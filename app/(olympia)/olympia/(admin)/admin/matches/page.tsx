@@ -10,10 +10,12 @@ import { EditMatchDialog } from '@/components/olympia/admin/matches/EditMatchDia
 import { DeleteMatchButton } from '@/components/olympia/admin/matches/DeleteMatchButton'
 import { DeleteTournamentButton } from '@/components/olympia/admin/matches/DeleteTournamentButton'
 import { LiveSessionControls } from '@/components/olympia/admin/matches/LiveSessionControls'
-import { getServerAuthContext } from '@/lib/server-auth'
+import { requireOlympiaAdminContext } from '@/lib/olympia/olympia-auth'
+import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 
-// ISR: Cache for 30 seconds, match data updates frequently
-export const revalidate = 30;
+// Admin data must always be read fresh.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const statusColorMap: Record<string, string> = {
   draft: 'bg-slate-200 text-slate-700',
@@ -44,8 +46,8 @@ const formatDate = (value: string | null) => {
 }
 
 async function fetchMatchesData() {
-  const { supabase } = await getServerAuthContext()
-  const olympia = supabase.schema('olympia')
+  await requireOlympiaAdminContext()
+  const olympia = getOlympiaAdminClient().schema('olympia')
 
   const [{ data: tournaments, error: tournamentError }, { data: matches, error: matchError }] = await Promise.all([
     olympia

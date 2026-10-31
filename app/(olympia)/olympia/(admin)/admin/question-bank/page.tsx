@@ -5,7 +5,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { getServerAuthContext } from '@/lib/server-auth'
+import { requireOlympiaAdminContext } from '@/lib/olympia/olympia-auth'
+import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 
 type QuestionRow = {
   id: string
@@ -15,7 +16,6 @@ type QuestionRow = {
   answer_text: string
   note: string | null
   created_at: string
-  question_sets?: { name: string } | { name: string }[] | null
 }
 
 type QuestionSetRow = {
@@ -30,11 +30,10 @@ const dateFormatter = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' })
 const formatDate = (value: string) => dateFormatter.format(new Date(value))
 
 async function fetchQuestionBank() {
-  const { supabase } = await getServerAuthContext()
-  const olympia = supabase.schema('olympia')
+  const olympia = getOlympiaAdminClient().schema('olympia')
   const { data, error, count } = await olympia
     .from('question_set_items')
-    .select('id, code, category, question_text, answer_text, note, created_at, question_sets(name)', { count: 'exact' })
+    .select('id, code, category, question_text, answer_text, note, created_at, question_set_id', { count: 'exact' })
     .order('created_at', { ascending: false })
     .limit(50)
 
@@ -47,24 +46,16 @@ async function fetchQuestionBank() {
 }
 
 async function fetchQuestionSets() {
-  try {
-    const { supabase } = await getServerAuthContext()
-    const olympia = supabase.schema('olympia')
+  {
+    const olympia = getOlympiaAdminClient().schema('olympia')
     const { data, error } = await olympia
       .from('question_sets')
       .select('id, name, item_count, original_filename, created_at')
       .order('created_at', { ascending: false })
       .limit(30)
 
-    if (error) {
-      console.warn('[QuestionBank] Failed to fetch question sets:', error.message)
-      return []
-    }
-
+    if (error) throw error
     return data ?? []
-  } catch (err) {
-    console.warn('[QuestionBank] Question sets table may not exist yet:', err)
-    return []
   }
 }
 
@@ -90,6 +81,7 @@ function CategoryBadges({ questions }: { questions: QuestionRow[] }) {
 }
 
 export default async function OlympiaQuestionBankPage() {
+  await requireOlympiaAdminContext()
   const [{ total, questions }, questionSets] = await Promise.all([fetchQuestionBank(), fetchQuestionSets()])
 
   return (

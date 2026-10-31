@@ -8,7 +8,7 @@ import {
   parseQuestionSetWorkbook,
 } from "@/lib/olympia/question-set-workbook";
 import { requireOlympiaAdminContext } from "@/lib/olympia/olympia-auth";
-import { getServerAuthContext } from "@/lib/server-auth";
+import getOlympiaAdminClient from "@/lib/olympia/olympia-admin-client";
 
 export type ActionState = {
   error?: string | null;
@@ -70,8 +70,8 @@ function parseQuestionRoundType(code: string): string | null {
 
 export async function createMatchAction(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase, appUserId } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    const { appUserId } = await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsed = matchSchema.safeParse({
       name: formData.get("name"),
@@ -149,8 +149,8 @@ export async function createMatchAction(_: ActionState, formData: FormData): Pro
 
 export async function deleteMatchAction(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsed = matchIdSchema.safeParse({ matchId: formData.get("matchId") });
     if (!parsed.success) {
@@ -178,8 +178,8 @@ export async function createQuestionAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase, appUserId } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    const { appUserId } = await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
     const parsed = questionSchema.safeParse({
       code: formData.get("code"),
       category: formData.get("category"),
@@ -241,17 +241,14 @@ export async function createQuestionAction(
       note: payload.note,
       submitted_by: appUserId ?? null,
       source: null,
-      image_url: null,
-      audio_url: null,
+      image_path: null,
+      audio_path: null,
+      image_external_url: null,
+      audio_external_url: null,
       order_index: nextOrderIndex,
     });
 
     if (error) return { error: error.message };
-
-    await olympia
-      .from("question_sets")
-      .update({ item_count: nextOrderIndex + 1 })
-      .eq("id", setId);
 
     revalidatePath("/olympia/admin/question-bank");
     return { success: "Đã thêm câu hỏi." };
@@ -264,9 +261,11 @@ export async function uploadQuestionSetAction(
   _: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  let createdSetId: string | null = null;
+  let uploadedAssetPaths: string[] = [];
   try {
-    const { supabase, appUserId } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    const { appUserId } = await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsedName = questionSetUploadSchema.safeParse({ name: formData.get("name") });
     if (!parsedName.success) {
@@ -297,12 +296,37 @@ export async function uploadQuestionSetAction(
       return { error: "Không có câu hỏi hợp lệ trong file đã tải lên." };
     }
 
-    type AssetManifestEntry = { name: string; path: string; publicUrl: string };
+    type AssetManifestEntry = { name: string; path: string };
     const rawManifest = formData.get("assetManifest");
-    const assetManifest: Record<string, AssetManifestEntry> =
-      typeof rawManifest === "string" && rawManifest.trim().length > 0
-        ? (JSON.parse(rawManifest) as Record<string, AssetManifestEntry>)
-        : {};
+    let assetManifest: Record<string, AssetManifestEntry> = {};
+    try {
+      if (typeof rawManifest === "string" && rawManifest.trim().length > 0) {
+        const parsedManifest: unknown = JSON.parse(rawManifest);
+        if (!parsedManifest || typeof parsedManifest !== "object" || Array.isArray(parsedManifest)) {
+          return { error: "Manifest tài nguyên không hợp lệ." };
+        }
+        for (const [key, value] of Object.entries(parsedManifest)) {
+          const entry = value as Record<string, unknown>;
+          if (
+            !value ||
+            typeof value !== "object" ||
+            typeof entry.name !== "string" ||
+            typeof entry.path !== "string" ||
+            !/^question-sets\/[0-9a-f-]{36}\/[^/]+$/i.test(entry.path) ||
+            entry.path.includes("..")
+          ) {
+            return { error: "Manifest tài nguyên không hợp lệ." };
+          }
+          assetManifest[key.toLowerCase()] = {
+            name: entry.name,
+            path: entry.path,
+          };
+        }
+      }
+    } catch {
+      return { error: "Manifest tài nguyên không hợp lệ." };
+    }
+    uploadedAssetPaths = Object.values(assetManifest).map((asset) => asset.path);
 
     const requiredAssets = extractRequiredAssetBasenames(items);
     if (requiredAssets.length > 0) {
@@ -310,12 +334,27 @@ export async function uploadQuestionSetAction(
         .filter((name) => !assetManifest[name.toLowerCase()])
         .slice(0, 20);
       if (missing.length > 0) {
-        return {
-          error:
-            missing.length === 1
-              ? `Thiếu tài nguyên: ${missing[0]}. Vui lòng tải thư mục tài nguyên trước khi submit.`
-              : `Thiếu ${missing.length} tài nguyên (ví dụ: ${missing.join(", ")}). Vui lòng tải thư mục tài nguyên trước khi submit.`,
-        };
+        throw new Error(
+          missing.length === 1
+            ? `Thiếu tài nguyên: ${missing[0]}. Vui lòng tải thư mục tài nguyên trước khi submit.`
+            : `Thiếu ${missing.length} tài nguyên (ví dụ: ${missing.join(", ")}). Vui lòng tải thư mục tài nguyên trước khi submit.`
+        );
+      }
+    }
+    for (const item of items) {
+      for (const media of [item.image_url, item.audio_url]) {
+        if (!media || !media.trim()) continue;
+        if (/^https?:\/\//i.test(media) && !/^https:\/\//i.test(media)) {
+          throw new Error("Chỉ chấp nhận URL HTTPS cho tài nguyên ngoài.");
+        }
+        if (/^https:\/\//i.test(media)) {
+          try {
+            const url = new URL(media);
+            if (url.protocol !== "https:") throw new Error("URL tài nguyên không hợp lệ.");
+          } catch {
+            throw new Error("URL tài nguyên không hợp lệ.");
+          }
+        }
       }
     }
 
@@ -324,37 +363,49 @@ export async function uploadQuestionSetAction(
       .insert({
         name: parsedName.data.name,
         original_filename: file.name,
-        item_count: items.length,
+        item_count: 0,
         uploaded_by: appUserId ?? null,
       })
       .select("id")
       .maybeSingle();
 
-    if (insertSetError) return { error: insertSetError.message };
-    if (!createdSet) return { error: "Không thể lưu bộ đề." };
+    if (insertSetError) throw insertSetError;
+    if (!createdSet) throw new Error("Không thể lưu bộ đề.");
+    createdSetId = createdSet.id;
 
     const batchSize = 500;
     for (let i = 0; i < items.length; i += batchSize) {
       const slice = items.slice(i, i + batchSize).map((item) => {
         const imageBase = item.image_url ? normalizeAssetBasename(item.image_url) : "";
         const audioBase = item.audio_url ? normalizeAssetBasename(item.audio_url) : "";
+        const imageIsExternal = Boolean(item.image_url?.trim().match(/^https:\/\//i));
+        const audioIsExternal = Boolean(item.audio_url?.trim().match(/^https:\/\//i));
 
         return {
           question_set_id: createdSet.id,
-          ...item,
-          image_url:
+          code: item.code,
+          category: item.category,
+          question_text: item.question_text,
+          answer_text: item.answer_text,
+          note: item.note,
+          submitted_by: item.submitted_by,
+          source: item.source,
+          order_index: item.order_index,
+          image_path:
             imageBase && assetManifest[imageBase.toLowerCase()]
-              ? assetManifest[imageBase.toLowerCase()]!.publicUrl
-              : item.image_url,
-          audio_url:
+              ? assetManifest[imageBase.toLowerCase()]!.path
+              : null,
+          audio_path:
             audioBase && assetManifest[audioBase.toLowerCase()]
-              ? assetManifest[audioBase.toLowerCase()]!.publicUrl
-              : item.audio_url,
+              ? assetManifest[audioBase.toLowerCase()]!.path
+              : null,
+          image_external_url: imageIsExternal ? item.image_url : null,
+          audio_external_url: audioIsExternal ? item.audio_url : null,
         };
       });
 
       const { error } = await olympia.from("question_set_items").insert(slice);
-      if (error) return { error: error.message };
+      if (error) throw error;
     }
 
     revalidatePath("/olympia/admin/question-bank");
@@ -366,14 +417,35 @@ export async function uploadQuestionSetAction(
       success: `Đã tạo bộ đề "${parsedName.data.name}" với ${items.length} câu${skippedMsg}.`,
     };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Không thể tải bộ đề." };
+    const cleanupErrors: string[] = [];
+    try {
+      const admin = getOlympiaAdminClient();
+      const olympia = admin.schema("olympia");
+      if (createdSetId) {
+        const { error: itemsError } = await olympia
+          .from("question_set_items")
+          .delete()
+          .eq("question_set_id", createdSetId);
+        if (itemsError) cleanupErrors.push(`dọn câu hỏi: ${itemsError.message}`);
+        const { error: setError } = await olympia.from("question_sets").delete().eq("id", createdSetId);
+        if (setError) cleanupErrors.push(`dọn bộ đề: ${setError.message}`);
+      }
+      if (uploadedAssetPaths.length > 0) {
+        const { error } = await admin.storage.from("olympia-assets").remove(uploadedAssetPaths);
+        if (error) cleanupErrors.push(`dọn tài nguyên: ${error.message}`);
+      }
+    } catch (cleanupError) {
+      cleanupErrors.push(cleanupError instanceof Error ? cleanupError.message : "không xác định");
+    }
+    const original = err instanceof Error ? err.message : "Không thể tải bộ đề.";
+    return { error: cleanupErrors.length > 0 ? `${original} (Cleanup thất bại: ${cleanupErrors.join("; ")})` : original };
   }
 }
 
 export async function updateMatchAction(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsed = z
       .object({
@@ -462,8 +534,8 @@ async function generateRoundQuestionsFromSetsAction(
   };
 
   try {
-    const { supabase } = await getServerAuthContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     if (questionSetIds.length === 0) {
       debug.notes.push("Không có questionSetIds được chọn.");
@@ -492,7 +564,9 @@ async function generateRoundQuestionsFromSetsAction(
     // Fetch all question_set_items from the selected sets
     const { data: itemsData, error: itemsError } = await olympia
       .from("question_set_items")
-      .select("id, code, question_text, answer_text, note, order_index")
+      .select(
+        "id, code, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, order_index"
+      )
       .in("question_set_id", questionSetIds)
       .order("order_index", { ascending: true });
     if (itemsError) throw itemsError;
@@ -564,6 +638,10 @@ async function generateRoundQuestionsFromSetsAction(
         question_text: item.question_text,
         answer_text: item.answer_text,
         note: item.note,
+        image_path: item.image_path,
+        audio_path: item.audio_path,
+        image_external_url: item.image_external_url,
+        audio_external_url: item.audio_external_url,
         target_player_id: null,
         meta: item.code ? { code: item.code } : {},
       }));
@@ -603,8 +681,8 @@ export async function updateMatchQuestionSetsAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const rawSetIds = formData
       .getAll("questionSetIds")
@@ -686,8 +764,8 @@ export async function updateMatchPlayersOrderAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const rawPlayerOrder = formData.getAll("playerOrder[]");
     const playerOrderData = rawPlayerOrder
@@ -778,8 +856,8 @@ export async function createMatchRoundsAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsed = createMatchRoundsSchema.safeParse({ matchId: formData.get("matchId") });
     if (!parsed.success) {
@@ -856,8 +934,8 @@ export async function createTournamentAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsed = tournamentSchema.safeParse({
       name: formData.get("name"),
@@ -894,8 +972,8 @@ export async function updateTournamentAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const parsed = z
       .object({
@@ -950,8 +1028,8 @@ export async function deleteTournamentAction(
   formData: FormData
 ): Promise<ActionState> {
   try {
-    const { supabase } = await requireOlympiaAdminContext();
-    const olympia = supabase.schema("olympia");
+    await requireOlympiaAdminContext();
+    const olympia = getOlympiaAdminClient().schema("olympia");
 
     const tournamentId = formData.get("tournamentId") as string;
 

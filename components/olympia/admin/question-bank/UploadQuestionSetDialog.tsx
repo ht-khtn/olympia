@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 
 const initialState: ActionState = { error: null, success: null }
 
-type AssetManifestEntry = { name: string; path: string; publicUrl: string }
+type AssetManifestEntry = { name: string; path: string }
 
 type DirectoryInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   webkitdirectory?: string
@@ -143,9 +143,8 @@ function UploadQuestionSetForm({ onDone }: { onDone: () => void }) {
           throw new Error(`Upload thất bại: ${file.name} (${error.message})`)
         }
 
-        const { data } = supabase.storage.from(bucket).getPublicUrl(path)
         const key = file.name.toLowerCase()
-        manifest[key] = { name: file.name, path, publicUrl: data.publicUrl }
+        manifest[key] = { name: file.name, path }
       }
 
       setAssetManifest(manifest)
