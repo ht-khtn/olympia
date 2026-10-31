@@ -24,6 +24,12 @@ CREATE INDEX IF NOT EXISTS realtime_events_session_id_created_at_idx
 
 -- Cho guest/MC views đọc stream realtime
 GRANT SELECT ON TABLE olympia.realtime_events TO anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON TABLE olympia.realtime_events FROM anon, authenticated;
+ALTER TABLE olympia.realtime_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS olympia_public_realtime_events_read ON olympia.realtime_events;
+CREATE POLICY olympia_public_realtime_events_read
+  ON olympia.realtime_events FOR SELECT TO anon, authenticated USING (true);
 
 -- Best-effort: add vào publication realtime nếu tồn tại
 DO $$
@@ -159,9 +165,6 @@ BEGIN
       'id', OLD.id,
       'roundQuestionId', OLD.round_question_id,
       'playerId', OLD.player_id,
-      'answerText', OLD.answer_text,
-      'isCorrect', OLD.is_correct,
-      'pointsAwarded', OLD.points_awarded,
       'submittedAt', OLD.submitted_at,
       'responseTimeMs', OLD.response_time_ms
     );
@@ -176,9 +179,6 @@ BEGIN
     'id', NEW.id,
     'roundQuestionId', NEW.round_question_id,
     'playerId', NEW.player_id,
-    'answerText', NEW.answer_text,
-    'isCorrect', NEW.is_correct,
-    'pointsAwarded', NEW.points_awarded,
     'submittedAt', NEW.submitted_at,
     'responseTimeMs', NEW.response_time_ms
   );

@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerAuthContext } from "@/lib/server-auth";
-import { unstable_cache } from "next/cache";
 import { hasOlympiaGrant } from "@/lib/olympia/session-grants";
 
 const SLOW_SNAPSHOT_LOG_MS = 1200;
@@ -25,22 +24,6 @@ async function measure<T>(
   }
 }
 
-const isOlympiaAdminCached = unstable_cache(
-  async (appUserId: string): Promise<boolean> => {
-    const { supabase } = await getServerAuthContext();
-    const olympia = supabase.schema("olympia");
-    const { data: role, error } = await olympia
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", appUserId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    return role?.role === "admin";
-  },
-  ["olympia", "host-snapshot", "is-admin"],
-  { revalidate: 60 }
-);
-
 type SnapshotRoundQuestion = {
   id: string;
   target_player_id: string | null;
@@ -54,6 +37,7 @@ type SnapshotAnswer = {
   is_correct: boolean | null;
   points_awarded: number | null;
   submitted_at: string;
+  response_time_ms: number | null;
 };
 
 type SnapshotResponse = {
@@ -98,7 +82,15 @@ export async function GET(request: NextRequest) {
     }
 
     const isAdmin = appUserId
-      ? await measure(perf, "checkAdminCached", () => isOlympiaAdminCached(appUserId))
+      ? await measure(perf, "checkAdmin", async () => {
+          const { data: role, error } = await olympia
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", appUserId)
+            .maybeSingle();
+          if (error) throw new Error(error.message);
+          return role?.role === "admin";
+        })
       : false;
     const hasMcGrant = sessionId
       ? await hasOlympiaGrant({ sessionId, scope: "mc" })
@@ -156,7 +148,7 @@ export async function GET(request: NextRequest) {
       measure(perf, "answers.byMatchAndRq", () =>
         olympia
           .from("answers")
-          .select("id, player_id, answer_text, is_correct, points_awarded, submitted_at")
+          .select("id, player_id, answer_text, is_correct, points_awarded, submitted_at, response_time_ms")
           .eq("match_id", matchId)
           .eq("round_question_id", rqId)
           .order("submitted_at", { ascending: false })

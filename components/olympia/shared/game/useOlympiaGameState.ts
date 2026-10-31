@@ -217,11 +217,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
         setVcnvLockedWrongByRoundQuestionId({});
         return;
       }
-      const supabase = supabaseRef.current;
-      if (!supabase) return;
       try {
-        const olympia = supabase.schema("olympia");
-
         // Nếu có câu code = CNV và đã có đáp án đúng, coi như "lật toàn bộ" cho tất cả hàng.
         const currentRoundId = sessionRef.current.current_round_id;
         const cnvRqId =
@@ -234,15 +230,24 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
 
         const idsToQuery = cnvRqId ? Array.from(new Set([...rqIds, cnvRqId])) : rqIds;
 
-        const { data, error } = await olympia
-          .from("answers")
-          .select("round_question_id, player_id, is_correct")
-          .eq("match_id", matchId)
-          .in("round_question_id", idsToQuery);
-        if (error) {
-          console.warn("[Olympia] fetch VCNV reveal snapshot failed", error.message);
-          return;
-        }
+        const answerResults = await Promise.all(
+          idsToQuery.map(async (roundQuestionId) => {
+            const url = new URL("/api/olympia/public/answers", window.location.origin);
+            url.searchParams.set("sessionId", sessionId);
+            url.searchParams.set("roundQuestionId", roundQuestionId);
+            const response = await fetch(url.toString(), { cache: "no-store" });
+            if (!response.ok) return [];
+            const result = (await response.json()) as {
+              answers?: Array<{
+                round_question_id: string;
+                player_id: string;
+                is_correct?: boolean | null;
+              }>;
+            };
+            return result.answers ?? [];
+          })
+        );
+        const data = answerResults.flat();
 
         const next: VcnvRevealMap = {};
         const nextLocked: VcnvLockMap = {};
@@ -388,10 +393,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   }, [roundType, session.current_round_id, fetchVcnvRevealSnapshot]);
 
   const fetchAnswersForQuestion = useCallback(async (roundQuestionId: string) => {
-    const supabase = supabaseRef.current;
-    if (!supabase) return;
     try {
-      const olympia = supabase.schema("olympia");
       const canReadAnswers =
         viewerMode === "mc" ||
         (viewerMode === "player" &&
@@ -400,23 +402,17 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
         setAnswers([]);
         return;
       }
-      const { data, error } = await olympia
-        .from("answers")
-        .select(
-          "id, match_id, match_round_id, round_question_id, player_id, answer_text, is_correct, points_awarded, response_time_ms, submitted_at"
-        )
-        .eq("round_question_id", roundQuestionId)
-        .order("submitted_at", { ascending: false })
-        .limit(20);
-      if (error) {
-        console.warn("[Olympia] fetch answers failed", error.message);
-        return;
-      }
-      setAnswers((data as AnswerRow[] | null) ?? []);
+      const url = new URL("/api/olympia/public/answers", window.location.origin);
+      url.searchParams.set("sessionId", sessionId);
+      url.searchParams.set("roundQuestionId", roundQuestionId);
+      const response = await fetch(url.toString(), { cache: "no-store" });
+      if (!response.ok) return;
+      const result = (await response.json()) as { answers?: AnswerRow[] };
+      setAnswers(result.answers ?? []);
     } catch (err) {
       console.warn("[Olympia] fetch answers failed", err);
     }
-  }, [viewerMode]);
+  }, [sessionId, viewerMode]);
 
   const refreshCurrentRoundQuestion = useCallback(async () => {
     const supabase = supabaseRef.current;
@@ -427,13 +423,8 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
 
     try {
       const olympia = supabase.schema("olympia");
-      const canReadAnswer =
-        viewerMode === "mc" ||
-        (viewerMode === "player" &&
-          ["answer_revealed", "completed"].includes(sessionRef.current.question_state ?? ""));
-      const questionSelect = canReadAnswer
-        ? "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
-        : "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count";
+      const questionSelect =
+        "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count";
       const { data: rawRqRow, error } = await olympia
         .from("round_questions")
         .select(questionSelect)
@@ -446,7 +437,10 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
       setRoundQuestions((prev) => {
         const next = [...prev];
         const idx = next.findIndex((row) => row.id === rqRow.id);
-        const normalized = rqRow as RoundQuestionRow;
+        const normalized: RoundQuestionRow = {
+          ...rqRow,
+          answer_text: rqRow.answer_text ?? (idx >= 0 ? next[idx]?.answer_text ?? null : null),
+        };
         if (idx === -1) next.push(normalized);
         else next[idx] = { ...next[idx], ...normalized };
         return next;
@@ -831,9 +825,9 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
                   match_id: matchId,
                   round_question_id: roundQuestionId,
                   player_id: playerId,
-                  answer_text: payloadString(evt.payload, "answerText"),
-                  is_correct: payloadBoolean(evt.payload, "isCorrect"),
-                  points_awarded: payloadNumber(evt.payload, "pointsAwarded"),
+                  answer_text: null,
+                  is_correct: null,
+                  points_awarded: null,
                   submitted_at: submittedAt,
                   response_time_ms: payloadNumber(evt.payload, "responseTimeMs"),
                 };
@@ -857,22 +851,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
                 }
 
                 if (isCurrentQuestion) {
-                  setAnswers((prev) => {
-                    if (evt.event_type === "DELETE") {
-                      return prev.filter((a) => a.id !== row.id);
-                    }
-
-                    const next = [row, ...prev.filter((a) => a.id !== row.id)];
-                    const parsed = next
-                      .slice()
-                      .sort((a, b) => {
-                        const at = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
-                        const bt = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
-                        return bt - at;
-                      })
-                      .slice(0, 20);
-                    return parsed;
-                  });
+                  void fetchAnswersForQuestion(roundQuestionId);
                 }
               }
             });

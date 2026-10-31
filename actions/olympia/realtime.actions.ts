@@ -1305,76 +1305,25 @@ export async function triggerBuzzerAction(
 
     const eventType = isVeDichStealWindow ? "steal" : "buzz";
 
-    // Client lọc buzzer theo reset gần nhất, nên server cũng phải áp dụng cùng logic.
-    // Nếu không, có thể xảy ra lệch trạng thái: UI báo "Chưa ai bấm" nhưng server lại nghĩ đã có winner cũ.
-    const { data: lastReset, error: resetErr } = await olympia
-      .from("buzzer_events")
-      .select("occurred_at")
-      .eq("round_question_id", session.current_round_question_id)
-      .eq("event_type", "reset")
-      .order("occurred_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    traceInfo({
-      traceId,
-      action: "triggerBuzzerAction",
-      event: "db.buzzer_events.last_reset",
-      fields: { msSinceStart: Date.now() - startedAt },
-    });
-    if (resetErr) return { error: resetErr.message };
-    const resetOccurredAt =
-      (lastReset as unknown as { occurred_at?: string | null })?.occurred_at ?? null;
-
-    // Nếu đã có người thắng, không cho nhận thêm.
-    let firstBuzzQuery = olympia
-      .from("buzzer_events")
-      .select("id, player_id, result, occurred_at")
-      .eq("round_question_id", session.current_round_question_id)
-      .eq("event_type", eventType);
-    if (resetOccurredAt) {
-      firstBuzzQuery = firstBuzzQuery.gte("occurred_at", resetOccurredAt);
-    }
-    const { data: firstBuzz, error: buzzError } = await firstBuzzQuery
-      .order("occurred_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    traceInfo({
-      traceId,
-      action: "triggerBuzzerAction",
-      event: "db.buzzer_events.first_buzz",
-      fields: { msSinceStart: Date.now() - startedAt },
-    });
-
-    if (buzzError) return { error: buzzError.message };
-    if (firstBuzz && firstBuzz.result === "win" && firstBuzz.player_id !== playerRow.id) {
-      return { error: "Đã có người bấm trước." };
-    }
-
-    if (firstBuzz && firstBuzz.player_id === playerRow.id && firstBuzz.result === "win") {
-      return { success: "Bạn đã là người bấm nhanh nhất." };
-    }
-
-    const isWinner = !firstBuzz;
-    const now = new Date().toISOString();
-    const { error: insertError } = await olympia.from("buzzer_events").insert({
-      match_id: session.match_id,
-      round_question_id: session.current_round_question_id,
-      player_id: playerRow.id,
-      event_type: eventType,
-      result: isWinner ? "win" : "lose",
-      occurred_at: now,
-    });
-
-    traceInfo({
-      traceId,
-      action: "triggerBuzzerAction",
-      event: "db.buzzer_events.insert",
-      fields: { msSinceStart: Date.now() - startedAt, isWinner },
+    const { data: buzzerResult, error: insertError } = await olympia.rpc("record_buzzer", {
+      p_session_id: session.id,
+      p_round_question_id: session.current_round_question_id,
+      p_player_id: playerRow.id,
+      p_event_type: eventType,
     });
 
     if (insertError) return { error: insertError.message };
+    const resultRow = (
+      Array.isArray(buzzerResult) ? buzzerResult[0] : buzzerResult
+    ) as { result?: string } | null;
+    const isWinner = resultRow?.result === "win";
+
+    traceInfo({
+      traceId,
+      action: "triggerBuzzerAction",
+      event: "db.buzzer_events.record_atomic",
+      fields: { msSinceStart: Date.now() - startedAt, isWinner },
+    });
 
     // Khi có người bấm chuông thắng (không phải cửa cướp Về đích), coi như "lượt cá nhân".
     // Mục tiêu: khóa quyền gửi đáp án cho các thí sinh khác và bật chấm điểm nhanh cho đúng người.

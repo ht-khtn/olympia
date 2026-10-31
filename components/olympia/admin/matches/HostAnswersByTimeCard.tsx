@@ -103,18 +103,15 @@ export function HostAnswersByTimeCard(props: Props) {
             return
         }
         try {
-            const supabase = supabaseRef.current ?? (await getSupabase())
-            supabaseRef.current = supabase
-            const olympia = supabase.schema('olympia')
-            const { data } = await olympia
-                .from('answers')
-                .select('id, player_id, answer_text, is_correct, points_awarded, submitted_at, response_time_ms')
-                .eq('round_question_id', effectiveRoundQuestionId)
-                .order('submitted_at', { ascending: true })
-                .limit(50)
-            setAnswers((data ?? []) as AnswerRow[])
+            const url = new URL('/api/olympia/host/snapshot', window.location.origin)
+            url.searchParams.set('matchId', matchId)
+            if (sessionId) url.searchParams.set('sessionId', sessionId)
+            const response = await fetch(url.toString(), { cache: 'no-store' })
+            if (!response.ok) return
+            const snapshot = (await response.json()) as { answers?: AnswerRow[] }
+            setAnswers(snapshot.answers ?? [])
         } catch {
-            // ignore
+            return
         }
     }, [effectiveRoundQuestionId, matchId])
 
@@ -146,11 +143,8 @@ export function HostAnswersByTimeCard(props: Props) {
 
                             const answerId = payloadString(evt.payload, 'id')
                             const playerId = payloadString(evt.payload, 'playerId')
-                            const answerText = payloadString(evt.payload, 'answerText')
                             const submittedAt = payloadString(evt.payload, 'submittedAt')
                             const responseTimeMs = payloadNumber(evt.payload, 'responseTimeMs')
-                            const isCorrect = payloadBoolean(evt.payload, 'isCorrect')
-                            const pointsAwarded = payloadNumber(evt.payload, 'pointsAwarded')
 
                             if (!answerId || !playerId || !submittedAt) return
 
@@ -160,9 +154,9 @@ export function HostAnswersByTimeCard(props: Props) {
                                 const nextRow: AnswerRow = {
                                     id: answerId,
                                     player_id: playerId,
-                                    answer_text: answerText,
-                                    is_correct: isCorrect,
-                                    points_awarded: pointsAwarded,
+                                    answer_text: null,
+                                    is_correct: null,
+                                    points_awarded: null,
                                     submitted_at: submittedAt,
                                     response_time_ms: responseTimeMs,
                                 }

@@ -257,24 +257,7 @@ export function HostLiveAnswersCard({
             return
         }
 
-        try {
-            const supabase = supabaseRef.current ?? (await getSupabase())
-            supabaseRef.current = supabase
-            const olympia = supabase.schema('olympia')
-            const { data } = await olympia
-                .from('answers')
-                .select('id, player_id, answer_text, is_correct, points_awarded, submitted_at')
-                .eq('round_question_id', rqId)
-                .order('submitted_at', { ascending: false })
-                .limit(50)
-            if (!data) return
-
-            setAnswers(data as unknown as AnswerRow[])
-        } catch {
-            // ignore
-        } finally {
-            void why
-        }
+        void why
     }, [matchId, refreshSnapshot])
 
     const refreshRoundQuestion = useCallback(async () => {

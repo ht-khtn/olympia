@@ -63,16 +63,13 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
             return
         }
         try {
-            const supabase = supabaseRef.current ?? (await getSupabase())
-            supabaseRef.current = supabase
-            const olympia = supabase.schema('olympia')
-            const { data } = await olympia
-                .from('answers')
-                .select('id, match_id, player_id, answer_text, is_correct, points_awarded, response_time_ms, submitted_at')
-                .eq('round_question_id', currentQuestionId)
-                .order('response_time_ms', { ascending: true, nullsFirst: false })
-                .limit(50)
-            setAnswers((data ?? []) as AnswerRow[])
+            const url = new URL('/api/olympia/public/answers', window.location.origin)
+            url.searchParams.set('sessionId', session.id)
+            url.searchParams.set('roundQuestionId', currentQuestionId)
+            const response = await fetch(url.toString(), { cache: 'no-store' })
+            if (!response.ok) return
+            const result = (await response.json()) as { answers?: AnswerRow[] }
+            setAnswers(result.answers ?? [])
         } catch {
             // ignore
         }
@@ -113,9 +110,9 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
                                 match_id: match.id,
                                 round_question_id: rqId,
                                 player_id: playerId,
-                                answer_text: payloadString(evt.payload, 'answerText'),
-                                is_correct: payloadBoolean(evt.payload, 'isCorrect'),
-                                points_awarded: payloadNumber(evt.payload, 'pointsAwarded'),
+                                answer_text: null,
+                                is_correct: null,
+                                points_awarded: null,
                                 response_time_ms: payloadNumber(evt.payload, 'responseTimeMs'),
                                 submitted_at: submittedAt,
                             }

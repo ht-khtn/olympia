@@ -5,8 +5,8 @@ import { OlympiaGameClient } from '@/components/olympia/shared/game'
 import { SessionInfoSidebar } from '@/components/olympia/client/game/SessionInfoSidebar'
 import { McPasswordGate } from '@/components/olympia/shared/McPasswordGate'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
-import { getServerSupabase } from '@/lib/server-auth'
 import { hasOlympiaGrant } from '@/lib/olympia/session-grants'
+import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 import type { AnswerRow, GameSessionPayload } from '@/types/olympia/game'
 
 export const dynamic = 'force-dynamic'
@@ -122,7 +122,7 @@ const statusLabel: Record<string, string> = {
 }
 
 export default async function OlympiaClientMcPage({ params }: PageProps) {
-    const supabase = await getServerSupabase()
+    const supabase = getOlympiaAdminClient()
 
     const resolvedParams = await params
     const joinCode = (resolvedParams.joinCode ?? '').trim().toUpperCase()
