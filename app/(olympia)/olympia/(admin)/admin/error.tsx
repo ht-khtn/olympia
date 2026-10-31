@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function OlympiaAdminError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <section className="flex min-h-[420px] items-center justify-center">
+    <section className="flex min-h-105 items-center justify-center">
       <Card className="w-full max-w-lg border-rose-200">
         <CardHeader>
           <div className="flex items-center gap-2 text-rose-700">
