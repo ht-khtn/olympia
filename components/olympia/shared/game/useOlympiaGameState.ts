@@ -402,9 +402,17 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
         setAnswers([]);
         return;
       }
-      const url = new URL("/api/olympia/public/answers", window.location.origin);
+      const url = new URL(
+        viewerMode === "mc" ? "/api/olympia/host/snapshot" : "/api/olympia/public/answers",
+        window.location.origin
+      );
+      if (viewerMode === "mc") {
+        url.searchParams.set("matchId", matchId);
+      }
       url.searchParams.set("sessionId", sessionId);
-      url.searchParams.set("roundQuestionId", roundQuestionId);
+      if (viewerMode !== "mc") {
+        url.searchParams.set("roundQuestionId", roundQuestionId);
+      }
       const response = await fetch(url.toString(), { cache: "no-store" });
       if (!response.ok) return;
       const result = (await response.json()) as { answers?: AnswerRow[] };
@@ -412,7 +420,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     } catch (err) {
       console.warn("[Olympia] fetch answers failed", err);
     }
-  }, [sessionId, viewerMode]);
+  }, [matchId, sessionId, viewerMode]);
 
   const refreshCurrentRoundQuestion = useCallback(async () => {
     const supabase = supabaseRef.current;

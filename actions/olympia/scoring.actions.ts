@@ -189,13 +189,6 @@ async function insertScoreChange(params: {
     });
 
     if (error) {
-      // Không chặn luồng chấm điểm nếu DB chưa migrate bảng audit.
-      if (
-        /score_changes/i.test(error.message) &&
-        /(does not exist|relation)/i.test(error.message)
-      ) {
-        return {};
-      }
       return { error: error.message };
     }
 
@@ -1205,7 +1198,7 @@ export async function undoLastScoreChangeAction(
       revertOf: (last as { id: string }).id,
     });
     if (auditErr) {
-      console.warn("[Olympia] insertScoreChange(undo) failed:", auditErr);
+      return { error: auditErr };
     }
 
     // Best-effort: nếu có answer_id thì reset points_awarded về 0 để host chấm lại.
@@ -1216,7 +1209,7 @@ export async function undoLastScoreChangeAction(
         .update({ points_awarded: 0 })
         .eq("id", answerId);
       if (answerResetErr) {
-        console.warn("[Olympia] undo reset answer points_awarded failed:", answerResetErr.message);
+        return { error: answerResetErr.message };
       }
     }
 
