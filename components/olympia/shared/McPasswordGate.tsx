@@ -30,7 +30,7 @@ export function McPasswordGate({ joinCode, children, mode = 'inline' }: McPasswo
     ) : (
       <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
         <p className="font-semibold">Đã mở khóa chế độ MC</p>
-        <p className="mt-1 text-xs">Bạn có thể xem màn hình MC ngay trên trang này.</p>
+        <p className="mt-1 text-xs">Bạn có thể theo dõi diễn biến trận trên trang này.</p>
       </div>
     )
   }
@@ -38,8 +38,8 @@ export function McPasswordGate({ joinCode, children, mode = 'inline' }: McPasswo
   const content = (
     <Card className={cn(mode === 'page' ? 'border-slate-200 bg-white' : undefined)}>
       <CardHeader>
-        <CardTitle className="text-base">Chế độ MC</CardTitle>
-        <CardDescription>Nhập mật khẩu MC để mở màn hình điều khiển.</CardDescription>
+        <CardTitle className="text-base">Xác thực quyền theo dõi MC</CardTitle>
+        <CardDescription>Nhập mật khẩu MC để xem diễn biến trận. Các thao tác điều khiển vẫn thuộc về Admin.</CardDescription>
       </CardHeader>
       <CardContent>
         <form

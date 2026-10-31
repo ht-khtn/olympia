@@ -33,7 +33,7 @@ export function McJoinForm() {
                 />
             </div>
             <Button type="submit" className="w-full" disabled={!joinCode.trim()}>
-                Vào màn hình MC
+                Theo dõi trận
             </Button>
         </form>
     )

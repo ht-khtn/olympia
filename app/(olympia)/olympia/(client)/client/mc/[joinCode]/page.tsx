@@ -140,7 +140,7 @@ export default async function OlympiaClientMcPage({ params }: PageProps) {
                 {!sessionIsRunning ? (
                     <div className="mx-auto max-w-3xl px-4 py-10">
                         <Alert className="border-slate-200 bg-white">
-                            <AlertTitle>Đang chờ host mở phòng</AlertTitle>
+                            <AlertTitle>Đang chờ Admin mở phòng</AlertTitle>
                             <AlertDescription>
                                 Trạng thái hiện tại: {statusLabel[sessionStatus] ?? sessionStatus}. Bạn có thể giữ trang này mở, hệ thống sẽ cập nhật khi host bắt đầu.
                             </AlertDescription>
@@ -148,6 +148,10 @@ export default async function OlympiaClientMcPage({ params }: PageProps) {
                     </div>
                 ) : (
                     <div className="w-full px-4 py-6">
+                        <div className="mx-auto mb-4 max-w-7xl rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                            <p className="font-semibold">Màn hình theo dõi dành cho MC</p>
+                            <p className="mt-1 text-xs text-sky-800">Bạn đang xem trạng thái realtime, câu hỏi, buzzer và bảng điểm. Admin là người điều khiển và xác nhận kết quả.</p>
+                        </div>
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
                             <div>
                                 <OlympiaGameClient

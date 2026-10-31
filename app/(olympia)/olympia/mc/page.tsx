@@ -9,15 +9,15 @@ export default async function OlympiaMcHomePage() {
     return (
         <section className="mx-auto max-w-2xl px-4 py-8 space-y-6">
             <div className="space-y-2">
-                <p className="text-xs uppercase text-muted-foreground">Olympia · MC</p>
-                <h1 className="text-3xl font-semibold tracking-tight">Màn hình MC</h1>
-                <p className="text-sm text-muted-foreground">Nhập mã phòng để mở màn hình điều hành MC (không bắt buộc đăng nhập).</p>
+                <p className="text-xs uppercase text-muted-foreground">Olympia · Người dẫn chương trình</p>
+                <h1 className="text-3xl font-semibold tracking-tight">Màn hình theo dõi cho MC</h1>
+                <p className="text-sm text-muted-foreground">Nhập mã phòng để theo dõi diễn biến, thí sinh và bảng điểm. MC không điều khiển nghiệp vụ trận đấu.</p>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Vào trận</CardTitle>
-                    <CardDescription>Dùng mã join code của live session</CardDescription>
+                    <CardTitle className="text-base">Vào phòng thi</CardTitle>
+                    <CardDescription>Dùng mã phòng do ban tổ chức cung cấp</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <McJoinForm />

@@ -76,7 +76,33 @@ export function SessionInfoSidebar({
       </Card>
 
       {variant === 'mc' ? (
-        <div id={resolvedMcAnswerNoteSlotId} className="space-y-3" />
+        <>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Zap className="h-4 w-4" />
+                Diễn biến hiện tại
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Vòng:</span>
+                <span className="font-semibold">{session.current_round_type ? roundLabelMap[session.current_round_type] : 'Chưa bắt đầu'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Trạng thái câu:</span>
+                <Badge variant="outline" className="text-xs">
+                  {session.question_state ? questionStateLabel[session.question_state] : '—'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Thí sinh:</span>
+                <span className="font-semibold">{playerCount}/4</span>
+              </div>
+            </CardContent>
+          </Card>
+          <div id={resolvedMcAnswerNoteSlotId} className="space-y-3" />
+        </>
       ) : null}
 
       {variant !== 'mc' && (
