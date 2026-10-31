@@ -1,248 +1,124 @@
 'use client'
 
-import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Upload } from 'tus-js-client'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { uploadQuestionSetAction, type ActionState } from '@/app/(olympia)/olympia/actions'
-import { cn } from '@/utils/cn'
 import getSupabase from '@/lib/supabase'
-import { extractRequiredAssetBasenames, parseQuestionSetWorkbook } from '@/lib/olympia/question-set-workbook'
+import { cn } from '@/utils/cn'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { parseQuestionSetWorkbookAction, createQuestionSetFromWorkbookAction, type ParseQuestionSetResult } from '@/app/(olympia)/olympia/(admin)/admin/question-bank/actions'
 
-const initialState: ActionState = { error: null, success: null }
+const MAX_FILE_SIZE = 20 * 1024 * 1024
+const MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'video/mp4', 'video/webm', 'video/quicktime'])
+const EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp3', 'wav', 'ogg', 'm4a', 'mp4', 'webm', 'mov', 'm4v'])
 
-type AssetManifestEntry = { name: string; path: string }
+type Props = { onDone?: () => void }
+type Progress = { name: string; value: number }
 
-type DirectoryInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-  webkitdirectory?: string
-  directory?: string
+function validMedia(file: File): boolean {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return EXTENSIONS.has(extension) && (file.type === '' || MIME_TYPES.has(file.type))
 }
 
-function DirectoryPickerInput(props: DirectoryInputProps) {
-  return <Input {...props} />
-}
+export function UploadQuestionSetDialog({ onDone }: Props) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [xlsx, setXlsx] = useState<File | null>(null)
+  const [preview, setPreview] = useState<ParseQuestionSetResult | null>(null)
+  const [media, setMedia] = useState<File[]>([])
+  const [progress, setProgress] = useState<Progress[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const requiredNames = useMemo(() => new Set((preview?.mediaRequirements ?? []).map((entry) => entry.filename.toLowerCase())), [preview])
 
-function UploadQuestionSetForm({ onDone }: { onDone: () => void }) {
-  const router = useRouter()
-  const [state, formAction, pending] = useActionState(uploadQuestionSetAction, initialState)
-
-  const [xlsxFile, setXlsxFile] = useState<File | null>(null)
-  const [assetFolderFiles, setAssetFolderFiles] = useState<File[]>([])
-  const [assetManifest, setAssetManifest] = useState<Record<string, AssetManifestEntry>>({})
-  const [requiredAssets, setRequiredAssets] = useState<string[]>([])
-  const [missingAssets, setMissingAssets] = useState<string[]>([])
-  const [isUploadingAssets, setIsUploadingAssets] = useState(false)
-  const [assetUploadError, setAssetUploadError] = useState<string | null>(null)
-  const lastToastRef = useRef<string | null>(null)
-
-  const assetCountLabel = useMemo(() => {
-    const count = Object.keys(assetManifest).length
-    if (count === 0) return 'Chưa tải tài nguyên.'
-    return `Đã tải ${count} file lên Supabase.`
-  }, [assetManifest])
-
-  const assetManifestForSubmit = useMemo(() => {
-    const requiredLower = new Set(requiredAssets.map((n) => n.toLowerCase()))
-    if (requiredLower.size === 0) return {}
-    const filtered: Record<string, AssetManifestEntry> = {}
-    for (const [key, value] of Object.entries(assetManifest)) {
-      if (requiredLower.has(key)) filtered[key] = value
-    }
-    return filtered
-  }, [assetManifest, requiredAssets])
-
-  useEffect(() => {
-    const message = state.error ?? state.success
-    if (!message) return
-    if (lastToastRef.current === message) return
-    lastToastRef.current = message
-
-    if (state.error) {
-      toast.error(message)
-      return
-    }
-
-    toast.success(message)
-    try {
-      router.refresh()
-    } catch {
-      // ignore
-    }
-    onDone()
-  }, [onDone, router, state.error, state.success])
-
-  useEffect(() => {
-    let cancelled = false
-    async function run() {
-      if (!xlsxFile) {
-        setRequiredAssets([])
-        return
-      }
-      try {
-        const buf = await xlsxFile.arrayBuffer()
-        const { items } = await parseQuestionSetWorkbook(buf)
-        const required = extractRequiredAssetBasenames(items)
-        if (!cancelled) setRequiredAssets(required)
-      } catch (err) {
-        if (!cancelled) {
-          setRequiredAssets([])
-          setAssetUploadError(err instanceof Error ? err.message : 'Không thể đọc file .xlsx để kiểm tra tài nguyên.')
-        }
-      }
-    }
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [xlsxFile])
-
-  useEffect(() => {
-    const requiredLower = new Set(requiredAssets.map((n) => n.toLowerCase()))
-    if (requiredLower.size === 0) {
-      setMissingAssets([])
-      return
-    }
-    const availableLower = new Set(Object.keys(assetManifest))
-    const missing = Array.from(requiredLower).filter((name) => !availableLower.has(name))
-    setMissingAssets(missing)
-  }, [requiredAssets, assetManifest])
-
-  async function handleXlsxChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setAssetUploadError(null)
-    const file = e.target.files?.[0] ?? null
-    setXlsxFile(file)
+  function reset() {
+    setName(''); setXlsx(null); setPreview(null); setMedia([]); setProgress([]); setError(null); setBusy(false)
   }
 
-  async function handleAssetFolderChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setAssetUploadError(null)
-    const files = Array.from(e.target.files ?? [])
-    setAssetFolderFiles(files)
-    setAssetManifest({})
+  async function parseWorkbook(file: File) {
+    setError(null); setXlsx(file); setPreview(null)
+    if (file.size > 5 * 1024 * 1024 || !file.name.toLowerCase().endsWith('.xlsx')) {
+      setError('Chỉ chấp nhận workbook .xlsx không quá 5 MiB.'); return
+    }
+    try {
+      const data = new FormData(); data.set('file', file)
+      setPreview(await parseQuestionSetWorkbookAction(data))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Không thể đọc workbook.')
+    }
+  }
 
-    if (files.length === 0) return
+  async function uploadMedia(file: File, path: string, token: string, endpoint: string, anonKey: string, onProgress: (value: number) => void) {
+    await new Promise<void>((resolve, reject) => {
+      const upload = new Upload(file, {
+        endpoint, chunkSize: 6 * 1024 * 1024, retryDelays: [0, 1000, 3000, 5000, 10000],
+        headers: { authorization: `Bearer ${token}`, apikey: anonKey },
+        metadata: { bucketName: 'olympia-assets', objectName: path, contentType: file.type || 'application/octet-stream', cacheControl: '3600' },
+        onError: reject, onProgress: (sent, total) => onProgress(Math.round((sent / total) * 100)), onSuccess: () => resolve(),
+      })
+      upload.start()
+    })
+  }
 
-    setIsUploadingAssets(true)
+  async function submit() {
+    if (!preview || !xlsx || !name.trim()) { setError('Cần chọn workbook, xem preview và nhập tên bộ đề.'); return }
+    const selected = new Map(media.map((file) => [file.name.toLowerCase(), file]))
+    const missing = Array.from(requiredNames).filter((file) => !selected.has(file))
+    const extra = media.filter((file) => !requiredNames.has(file.name.toLowerCase())).map((file) => file.name)
+    if (missing.length) { setError(`Thiếu media: ${missing.join(', ')}`); return }
+    if (extra.length) toast.warning(`File thừa sẽ không được upload: ${extra.join(', ')}`)
+    const uploadFiles = Array.from(requiredNames).map((file) => selected.get(file)).filter((file): file is File => file !== undefined)
+    const invalid = uploadFiles.find((file) => file.size > MAX_FILE_SIZE || !validMedia(file))
+    if (invalid) { setError(`Media không hợp lệ hoặc vượt 20 MiB: ${invalid.name}`); return }
+    setBusy(true); setError(null)
+    const uploaded: string[] = []; const questionSetId = globalThis.crypto.randomUUID()
     try {
       const supabase = await getSupabase()
-      const bucket = 'olympia-assets'
-      const batchId = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : String(Date.now())
-
-      const manifest: Record<string, AssetManifestEntry> = {}
-      for (const file of files) {
-        const safeName = file.name.replace(/[/\\]/g, '_')
-        const path = `question-sets/${batchId}/${safeName}`
-
-        const { error } = await supabase.storage.from(bucket).upload(path, file, {
-          upsert: true,
-          contentType: file.type || undefined,
-        })
-        if (error) {
-          throw new Error(`Upload thất bại: ${file.name} (${error.message})`)
-        }
-
-        const key = file.name.toLowerCase()
-        manifest[key] = { name: file.name, path }
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (!token || !anonKey || !supabaseUrl) throw new Error('Không có phiên đăng nhập hoặc cấu hình Supabase.')
+      const endpoint = `${supabaseUrl.replace(/\/$/, '')}/storage/v1/upload/resumable`
+      setProgress(uploadFiles.map((file) => ({ name: file.name, value: 0 })))
+      for (const file of uploadFiles) {
+        const path = `question-sets/${questionSetId}/${file.name}`
+        await uploadMedia(file, path, token, endpoint, anonKey, (value) => setProgress((current) => current.map((entry) => entry.name === file.name ? { ...entry, value } : entry)))
+        uploaded.push(path)
       }
-
-      setAssetManifest(manifest)
-    } catch (err) {
-      setAssetUploadError(err instanceof Error ? err.message : 'Không thể tải thư mục tài nguyên.')
-    } finally {
-      setIsUploadingAssets(false)
-    }
+      const formData = new FormData()
+      formData.set('questionSetId', questionSetId); formData.set('name', name.trim()); formData.set('filename', xlsx.name)
+      formData.set('items', JSON.stringify(preview.items)); formData.set('mediaPaths', JSON.stringify(uploaded))
+      await createQuestionSetFromWorkbookAction(formData)
+      toast.success('Đã import bộ đề thành công.'); setOpen(false); reset(); onDone?.()
+    } catch (cause) {
+      try {
+        const supabase = await getSupabase()
+        if (uploaded.length) await supabase.storage.from('olympia-assets').remove(uploaded)
+      } catch (cleanupError) {
+        console.error('Không thể cleanup media sau khi import thất bại:', cleanupError)
+      }
+      setError(cause instanceof Error ? cause.message : 'Import bộ đề thất bại.')
+    } finally { setBusy(false) }
   }
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Tên bộ đề</Label>
-        <Input id="name" name="name" placeholder="Ví dụ: Tuần 05 - Bảng A" required />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="file">File .xlsx</Label>
-        <Input id="file" name="file" type="file" accept=".xlsx" required onChange={handleXlsxChange} />
-        <p className="text-xs text-muted-foreground">
-          Mỗi hàng tương ứng 1 câu hỏi, để trống ô nếu không có dữ liệu. Hệ thống sẽ bỏ qua dòng thiếu CODE, CÂU HỎI hoặc ĐÁP ÁN.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="assets">Tài nguyên (thư mục)</Label>
-        <DirectoryPickerInput
-          id="assets"
-          type="file"
-          multiple
-          onChange={handleAssetFolderChange}
-          webkitdirectory="true"
-          directory="true"
-        />
-        <p className="text-xs text-muted-foreground">
-          Chọn 1 thư mục chứa các file xuất hiện trong cột LINK ẢNH/VIDEO và LINK ÂM THANH (nếu dư file thì không sao).
-        </p>
-        <p className={cn('text-xs', isUploadingAssets ? 'text-muted-foreground' : 'text-muted-foreground')}>
-          {isUploadingAssets ? `Đang tải ${assetFolderFiles.length} file lên Supabase...` : assetCountLabel}
-        </p>
-        {assetUploadError ? <p className="text-xs text-destructive">{assetUploadError}</p> : null}
-        {requiredAssets.length > 0 ? (
-          <p className="text-xs text-muted-foreground">Cần {requiredAssets.length} tài nguyên theo file .xlsx.</p>
-        ) : null}
-        {missingAssets.length > 0 ? (
-          <p className="text-xs text-destructive">
-            Thiếu {missingAssets.length} file: {missingAssets.slice(0, 8).join(', ')}
-            {missingAssets.length > 8 ? '…' : ''}
-          </p>
-        ) : null}
-      </div>
-
-      <input type="hidden" name="assetManifest" value={JSON.stringify(assetManifestForSubmit)} />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onDone} disabled={pending}>
-          Hủy
-        </Button>
-        <Button
-          type="submit"
-          disabled={pending || isUploadingAssets || missingAssets.length > 0}
-        >
-          {pending ? 'Đang tải lên…' : 'Tải lên'}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-export function UploadQuestionSetDialog() {
-  const [open, setOpen] = useState(false)
-  const [nonce, setNonce] = useState(0)
-
-  const handleOpenChange = (value: boolean) => {
-    setOpen(value)
-    if (!value) {
-      // force reset form state (useActionState + local states)
-      setNonce((n) => n + 1)
-    }
-  }
-
-  const handleDone = () => {
-    setOpen(false)
-    setNonce((n) => n + 1)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm">Tạo bộ đề (.xlsx)</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Tải bộ đề từ Excel</DialogTitle>
-          <DialogDescription>
-            File .xlsx không có hàng tiêu đề, thứ tự cột: CODE · LĨNH VỰC/VỊ TRÍ · CÂU HỎI · ĐÁP ÁN · GHI CHÚ · NGƯỜI GỬI · NGUỒN · LINK ẢNH/VIDEO · LINK ÂM THANH.
-          </DialogDescription>
-        </DialogHeader>
-        <UploadQuestionSetForm key={nonce} onDone={handleDone} />
+    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) reset() }}>
+      <DialogTrigger asChild><Button size="sm">Tạo bộ đề (.xlsx)</Button></DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Import bộ đề V4</DialogTitle><DialogDescription>Chọn workbook trước, sau đó chọn các media được workbook tham chiếu.</DialogDescription></DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2"><Label htmlFor="question-set-name">Tên bộ đề</Label><Input id="question-set-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="question-workbook">Workbook .xlsx</Label><Input id="question-workbook" type="file" accept=".xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void parseWorkbook(file) }} /></div>
+          {preview && <div className="rounded border p-3 text-sm"><p>Hợp lệ: <b>{preview.items.length}</b> câu · Skip: <b>{preview.skipped.length}</b> · Media: <b>{preview.mediaRequirements.length}</b></p><p className="text-muted-foreground">{preview.items.map((item) => item.sheet).filter((sheet, index, list) => list.indexOf(sheet) === index).join(', ')}</p></div>}
+          {preview && <div className="space-y-2"><Label htmlFor="question-media">Media (chọn nhiều file)</Label><Input id="question-media" type="file" multiple onChange={(event) => setMedia(Array.from(event.target.files ?? []))} /><p className="text-xs text-muted-foreground">Không cần ZIP hoặc thư mục con. Chỉ upload file được workbook tham chiếu.</p></div>}
+          {progress.length > 0 && <div className="space-y-1 text-xs"><p>Tổng tiến độ: {Math.round(progress.reduce((sum, entry) => sum + entry.value, 0) / progress.length)}%</p>{progress.map((entry) => <div key={entry.name}><div className="flex justify-between"><span>{entry.name}</span><span>{entry.value}%</span></div><div className="h-1 rounded bg-muted"><div className="h-1 rounded bg-primary" style={{ width: `${entry.value}%` }} /></div></div>)}</div>}
+          {error && <p className={cn('text-sm', 'text-destructive')}>{error}</p>}
+          <div className="flex justify-end gap-2"><Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={busy}>Hủy</Button><Button type="button" onClick={() => void submit()} disabled={busy || !preview}>{busy ? 'Đang import…' : 'Import'}</Button></div>
+        </div>
       </DialogContent>
     </Dialog>
   )

@@ -1,198 +1,208 @@
 import ExcelJS from "exceljs";
 
+export const QUESTION_SET_SHEETS = [
+  "DOC_TRUOC",
+  "KD_CA_NHAN",
+  "KD_CHUNG",
+  "VCNV",
+  "TANG_TOC",
+  "VE_DICH",
+  "CAU_HOI_PHU",
+] as const;
+
+export type QuestionSetSheet = (typeof QUESTION_SET_SHEETS)[number];
+
 export type ParsedQuestionSetItem = {
   code: string;
+  sheet: Exclude<QuestionSetSheet, "DOC_TRUOC">;
   category: string | null;
-  question_text: string;
+  question_text: string | null;
   answer_text: string;
   note: string | null;
-  submitted_by: string | null;
-  source: string | null;
-  image_url: string | null;
-  audio_url: string | null;
+  media_filename: string | null;
+  letter_count: number | null;
   order_index: number;
 };
 
-function isProbablyUrl(value: string): boolean {
-  const v = value.trim().toLowerCase();
-  return v.startsWith("http://") || v.startsWith("https://") || v.startsWith("data:");
-}
+export type MediaRequirement = {
+  code: string;
+  sheet: Exclude<QuestionSetSheet, "DOC_TRUOC">;
+  filename: string;
+};
 
-export function normalizeAssetBasename(raw: string): string {
-  const value = raw.trim();
-  if (!value) return "";
+export type SkippedQuestion = {
+  sheet: QuestionSetSheet;
+  row: number;
+  code: string | null;
+  reason: string;
+};
 
-  // Nếu là URL thì không coi là asset local
-  if (isProbablyUrl(value)) return "";
+export type ParsedQuestionSetWorkbook = {
+  items: ParsedQuestionSetItem[];
+  skipped: SkippedQuestion[];
+  warnings: string[];
+  mediaRequirements: MediaRequirement[];
+};
 
-  // Loại các placeholder thường gặp
-  const upper = value.toUpperCase();
-  if (upper === "TBD" || upper === "..." || upper === "-") return "";
+const CODE_PATTERNS: Record<Exclude<QuestionSetSheet, "DOC_TRUOC">, RegExp> = {
+  KD_CA_NHAN: /^(?:KD[1-4]-[1-6]|DKA-(?:[1-9]|1[0-5]))$/,
+  KD_CHUNG: /^(?:KD[1-4]-[1-6]|DKA-(?:[1-9]|1[0-5]))$/,
+  VCNV: /^(?:VCNV-[1-4]|VCNV-OTT|CNV)$/,
+  TANG_TOC: /^TT[1-4]$/,
+  VE_DICH: /^VD-(?:20|30)\.(?:[1-9]|10)$/,
+  CAU_HOI_PHU: /^CHP-[1-3]$/,
+};
 
-  // Lấy basename cuối cùng nếu có đường dẫn
-  const withoutQuery = value.split("?")[0] ?? value;
-  const parts = withoutQuery.split(/[/\\]/g);
-  const base = (parts[parts.length - 1] ?? "").trim();
-  return base;
-}
+const MEDIA_EXTENSIONS = new Set([
+  "jpg", "jpeg", "png", "webp", "gif", "mp3", "wav", "ogg", "m4a",
+  "mp4", "webm", "mov", "m4v",
+]);
 
-/**
- * Parses code format to extract round/question info.
- * Supports formats: KD{i}-{n}, DKA-{n}, VCNV-{n}, VCNV-OTT, CNV, TT{n}, VD-{s}.{n}, CHP-{i}
- * Returns normalized code (uppercase) and metadata.
- */
-function parseQuestionCode(rawCode: string): {
-  normalizedCode: string;
-  isTT: boolean;
-  ttNumber?: number;
-} {
-  const normalized = rawCode.toUpperCase().trim();
+const HEADER_ALIASES: Record<string, string[]> = {
+  code: ["code", "mã", "ma"],
+  position: ["position", "vị trí", "vi tri"],
+  category: ["category", "lĩnh vực", "linh vuc"],
+  question: ["question", "câu hỏi", "cau hoi"],
+  answer: ["answer", "đáp án", "dap an"],
+  note: ["note", "ghi chú", "ghi chu"],
+  media: ["media", "media filename", "tệp media", "tep media"],
+  letter_count: ["letter_count", "letter count", "số chữ", "so chu"],
+  duration: ["duration", "thời lượng", "thoi luong"],
+  points: ["points", "điểm", "diem"],
+};
 
-  const ttMatch = normalized.match(/^TT(\d+)$/);
-  if (ttMatch) {
-    return {
-      normalizedCode: normalized,
-      isTT: true,
-      ttNumber: parseInt(ttMatch[1]!, 10),
-    };
+function text(value: ExcelJS.CellValue): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object" && "text" in value && typeof value.text === "string") {
+    return value.text.trim();
   }
-
-  return { normalizedCode: normalized, isTT: false };
+  return String(value).trim();
 }
 
-export async function parseQuestionSetWorkbook(buffer: ArrayBuffer | Uint8Array | Buffer) {
+function normalizeHeader(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function readCell(row: ExcelJS.Row, index: number): string {
+  return text(row.getCell(index).value);
+}
+
+function toLoadBuffer(buffer: ArrayBuffer | Uint8Array | Buffer): ArrayBuffer {
+  if (buffer instanceof ArrayBuffer) return buffer;
+  const bytes = new Uint8Array(buffer);
+  return bytes.slice().buffer;
+}
+
+function validateMediaFilename(raw: string, code: string): string {
+  const filename = raw.trim();
+  if (!filename) return "";
+  if (filename.includes("/") || filename.includes("\\") || filename.includes("://")) {
+    throw new Error(`Media của ${code} phải là filename, không phải URL hoặc đường dẫn.`);
+  }
+  const match = /^([^./]+)\.([a-z0-9]+)$/i.exec(filename);
+  if (!match || match[1]!.toUpperCase() !== code || !MEDIA_EXTENSIONS.has(match[2]!.toLowerCase())) {
+    throw new Error(`Media của ${code} phải có dạng ${code}.extension hợp lệ.`);
+  }
+  return filename;
+}
+
+function computedLetterCount(answer: string): number {
+  return Array.from(answer).filter((character) => /[\p{L}\p{N}]/u.test(character)).length;
+}
+
+function findHeaderIndexes(sheet: ExcelJS.Worksheet, required: string[]): Map<string, number> {
+  const indexes = new Map<string, number>();
+  sheet.getRow(4).eachCell((cell, index) => {
+    const header = normalizeHeader(text(cell.value));
+    for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (aliases.includes(header)) indexes.set(key, index);
+    }
+  });
+  for (const key of required) {
+    if (!indexes.has(key)) throw new Error(`Sheet ${sheet.name} thiếu header ${key} ở hàng 4.`);
+  }
+  return indexes;
+}
+
+export async function parseQuestionSetWorkbook(
+  buffer: ArrayBuffer | Uint8Array | Buffer,
+): Promise<ParsedQuestionSetWorkbook> {
   const workbook = new ExcelJS.Workbook();
-
-  // ExcelJS hỗ trợ ArrayBuffer trong browser và Buffer trong Node.
-  const loadInput =
-    buffer instanceof ArrayBuffer ? buffer : buffer instanceof Uint8Array ? buffer.buffer : buffer;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await workbook.xlsx.load(loadInput as any);
-  const sheet = workbook.worksheets[0];
-  if (!sheet) {
-    throw new Error("File không có sheet hợp lệ.");
-  }
+  await workbook.xlsx.load(toLoadBuffer(buffer));
+  const actualNames = new Set(workbook.worksheets.map((sheet) => sheet.name));
+  const missingSheets = QUESTION_SET_SHEETS.filter((name) => !actualNames.has(name));
+  if (missingSheets.length > 0) throw new Error(`Workbook thiếu sheet: ${missingSheets.join(", ")}.`);
 
   const items: ParsedQuestionSetItem[] = [];
-  const codeSet = new Set<string>();
-  let skipped = 0;
+  const skipped: SkippedQuestion[] = [];
+  const codes = new Set<string>();
+  const mediaRequirements: MediaRequirement[] = [];
+  const warnings: string[] = [];
 
-  // First pass: collect all rows (9 cột theo mẫu)
-  const rows: string[][] = [];
-  sheet.eachRow((row) => {
-    const cells = Array.from({ length: 9 }, (_, index) => row.getCell(index + 1));
-    const values = cells.map((cell) =>
-      typeof cell.text === "string" ? cell.text.trim() : String(cell.text || "").trim()
-    );
-    rows.push(values);
-  });
-
-  // Second pass: process rows with TT merge handling
-  let i = 0;
-  while (i < rows.length) {
-    const values = rows[i]!;
-    const [
-      rawCode,
-      rawCategory,
-      rawQuestion,
-      rawAnswer,
-      rawNote,
-      rawSender,
-      rawSource,
-      rawImage,
-      rawAudio,
-    ] = values;
-
-    const isEmptyRow = values.every((value) => !value || value.length === 0);
-    if (isEmptyRow) {
-      i += 1;
+  for (const sheetName of QUESTION_SET_SHEETS) {
+    const sheet = workbook.getWorksheet(sheetName);
+    if (!sheet) throw new Error(`Không đọc được sheet ${sheetName}.`);
+    if (sheetName === "DOC_TRUOC") {
+      if (sheet.getRow(4).cellCount === 0) throw new Error("Sheet DOC_TRUOC thiếu header ở hàng 4.");
       continue;
     }
+    const requiredHeaders = sheetName === "VCNV"
+      ? ["code", "position", "category", "question", "answer", "letter_count", "media"]
+      : sheetName === "TANG_TOC"
+        ? ["code", "position", "duration", "category", "question", "answer", "note", "media"]
+        : sheetName === "VE_DICH"
+          ? ["code", "points", "position", "category", "question", "answer", "note", "media"]
+          : ["code", "position", "category", "question", "answer", "note", "media"];
+    const headers = findHeaderIndexes(sheet, requiredHeaders);
 
-    if (!rawCode || !rawQuestion || !rawAnswer) {
-      skipped += 1;
-      i += 1;
-      continue;
-    }
-
-    const codeInfo = parseQuestionCode(rawCode);
-    const normalizedCode = codeInfo.normalizedCode;
-
-    if (normalizedCode.length < 3 || normalizedCode.length > 32) {
-      skipped += 1;
-      i += 1;
-      continue;
-    }
-
-    if (codeSet.has(normalizedCode)) {
-      skipped += 1;
-      i += 1;
-      continue;
-    }
-
-    let mergedQuestion = rawQuestion;
-    let mergedAnswer = rawAnswer;
-    let mergedNote = rawNote;
-    let mergedImage = rawImage;
-    let mergedAudio = rawAudio;
-
-    if (codeInfo.isTT) {
-      let j = i + 1;
-      while (j < rows.length) {
-        const nextValues = rows[j]!;
-        const nextRawCode = nextValues[0]?.trim() || "";
-        const nextRawQuestion = nextValues[2]?.trim() || "";
-        const nextRawAnswer = nextValues[3]?.trim() || "";
-
-        const nextCodeInfo = parseQuestionCode(nextRawCode);
-        const isContinuation =
-          nextRawCode === "" ||
-          (codeInfo.isTT && nextCodeInfo.isTT && nextCodeInfo.ttNumber === codeInfo.ttNumber);
-
-        if (!isContinuation || (!nextRawQuestion && !nextRawAnswer)) {
-          break;
-        }
-
-        if (nextRawQuestion) mergedQuestion = mergedQuestion + "\n" + nextRawQuestion;
-        if (nextRawAnswer) mergedAnswer = mergedAnswer + "\n" + nextRawAnswer;
-        if (nextValues[4]?.trim()) mergedNote = (mergedNote || "") + "\n" + nextValues[4].trim();
-        if (nextValues[7]?.trim()) mergedImage = mergedImage || nextValues[7].trim();
-        if (nextValues[8]?.trim()) mergedAudio = mergedAudio || nextValues[8].trim();
-
-        j += 1;
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber < 5) return;
+      const codeRaw = readCell(row, headers.get("code")!);
+      const answer = readCell(row, headers.get("answer")!);
+      const question = readCell(row, headers.get("question")!);
+      const mediaRaw = readCell(row, headers.get("media")!);
+      if (!codeRaw && !answer && !question && !mediaRaw) return;
+      const code = codeRaw.toUpperCase();
+      if (!answer) {
+        skipped.push({ sheet: sheetName, row: rowNumber, code: code || null, reason: "ANSWER trống." });
+        return;
       }
+      if (!CODE_PATTERNS[sheetName].test(code)) {
+        throw new Error(`CODE ${code || "(trống)"} không hợp lệ cho sheet ${sheetName}, hàng ${rowNumber}.`);
+      }
+      if (codes.has(code)) throw new Error(`CODE trùng: ${code}.`);
 
-      i = j;
-    } else {
-      i += 1;
-    }
-
-    codeSet.add(normalizedCode);
-    items.push({
-      code: normalizedCode,
-      category: rawCategory?.length ? rawCategory : null,
-      question_text: mergedQuestion,
-      answer_text: mergedAnswer,
-      note: mergedNote?.length ? mergedNote : null,
-      submitted_by: rawSender?.length ? rawSender : null,
-      source: rawSource?.length ? rawSource : null,
-      image_url: mergedImage?.length ? mergedImage : null,
-      audio_url: mergedAudio?.length ? mergedAudio : null,
-      order_index: items.length,
+      const letterRaw = headers.has("letter_count") ? readCell(row, headers.get("letter_count")!) : "";
+      let letterCount: number | null = null;
+      if (sheetName === "VCNV") {
+        if (letterRaw) {
+          if (!/^[1-9]\d*$/.test(letterRaw)) throw new Error(`letter_count của ${code} phải là số nguyên dương.`);
+          letterCount = Number(letterRaw);
+        } else {
+          letterCount = computedLetterCount(answer);
+        }
+      }
+      const media = mediaRaw ? validateMediaFilename(mediaRaw, code) : null;
+      const item: ParsedQuestionSetItem = {
+        code,
+        sheet: sheetName,
+        category: readCell(row, headers.get("category")!) || null,
+        question_text: question || null,
+        answer_text: answer,
+        note: readCell(row, headers.get("note")!) || null,
+        media_filename: media || null,
+        letter_count: letterCount,
+        order_index: items.length,
+      };
+      codes.add(code);
+      items.push(item);
+      if (media) mediaRequirements.push({ code, sheet: sheetName, filename: media });
     });
   }
-
-  return { items, skipped };
+  if (items.length === 0) warnings.push("Workbook không có câu hỏi hợp lệ.");
+  return { items, skipped, warnings, mediaRequirements };
 }
 
 export function extractRequiredAssetBasenames(items: ParsedQuestionSetItem[]): string[] {
-  const required = new Set<string>();
-  for (const item of items) {
-    const img = item.image_url ? normalizeAssetBasename(item.image_url) : "";
-    const aud = item.audio_url ? normalizeAssetBasename(item.audio_url) : "";
-    if (img) required.add(img);
-    if (aud) required.add(aud);
-  }
-  return Array.from(required);
+  return Array.from(new Set(items.flatMap((item) => item.media_filename ? [item.media_filename] : [])));
 }

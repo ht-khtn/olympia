@@ -92,45 +92,27 @@ export function ViewQuestionSetDialog({ questionSetId, questionSetName, itemCoun
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <p className="text-sm">{item.question_text}</p>
+                        <p className="text-sm">{item.question_text ?? '—'}</p>
                         {item.note && (
                           <p className="text-xs text-muted-foreground italic">Ghi chú: {item.note}</p>
-                        )}
-                        {item.submitted_by && (
-                          <p className="text-xs text-muted-foreground">Người gửi: {item.submitted_by}</p>
-                        )}
-                        {item.source && (
-                          <p className="text-xs text-muted-foreground">Nguồn: {item.source}</p>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="font-medium text-sm">{item.answer_text}</TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1 text-xs">
-                        {item.image_url && (
-                          <a
-                            href={item.image_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Ảnh/Video
-                          </a>
-                        )}
-                        {item.audio_url && (
-                          <a
-                            href={item.audio_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Âm thanh
-                          </a>
-                        )}
-                        {!item.image_url && !item.audio_url && (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
+                      {item.media_url ? (() => {
+                        const extension = item.media_path?.split('.').pop()?.toLowerCase() ?? ''
+                        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension)) {
+                          return <img src={item.media_url} alt={`Media ${item.code}`} className="max-h-24 max-w-32 rounded object-contain" />
+                        }
+                        if (['mp3', 'wav', 'ogg', 'm4a'].includes(extension)) {
+                          return <audio controls src={item.media_url} className="max-w-44" />
+                        }
+                        if (['mp4', 'webm', 'mov', 'm4v'].includes(extension)) {
+                          return <video controls src={item.media_url} className="max-h-24 max-w-44 rounded" />
+                        }
+                        return <a href={item.media_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Mở media</a>
+                      })() : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                   </TableRow>
                 ))}
