@@ -173,14 +173,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
       const trimmed = typeof raw === "string" ? raw.trim().toUpperCase() : "";
       if (trimmed) return trimmed;
     }
-    const qs = rq.question_set_items;
-    const q = rq.questions;
-
-    const qsiCode = Array.isArray(qs) ? (qs[0]?.code ?? null) : (qs?.code ?? null);
-    const qCode = Array.isArray(q) ? (q[0]?.code ?? null) : (q?.code ?? null);
-    const raw = qsiCode ?? qCode ?? null;
-    const trimmed = typeof raw === "string" ? raw.trim().toUpperCase() : "";
-    return trimmed || null;
+    return null;
   }, []);
 
   const computeVcnvRowQuestionIds = useCallback((): string[] => {
@@ -341,7 +334,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
         // Lấy tất cả round_questions của vòng VCNV này
         const { data: rqRows, error: rqError } = await olympia
           .from("round_questions")
-          .select("id, meta, questions(code), question_set_items(code)")
+          .select("id, meta")
           .eq("match_round_id", session.current_round_id);
 
         if (rqError) {
@@ -356,8 +349,6 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
         for (const rq of (rqRows as Array<{
           id: string;
           meta?: Record<string, string | number | boolean | null> | null;
-          questions?: { code?: string } | null;
-          question_set_items?: { code?: string } | null;
         }> | null) ?? []) {
           let code: string | null = null;
 
@@ -365,12 +356,6 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
           if (rq.meta && typeof rq.meta === "object") {
             const raw = (rq.meta as Record<string, string | number | boolean | null>).code;
             code = typeof raw === "string" ? raw.trim().toUpperCase() : null;
-          }
-
-          // Fallback: questions.code hoặc question_set_items.code
-          if (!code) {
-            code = rq.questions?.code ?? rq.question_set_items?.code ?? null;
-            if (code) code = code.trim().toUpperCase();
           }
 
           if (code && wanted.has(code)) {
@@ -425,7 +410,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
       const { data: rqRow, error } = await olympia
         .from("round_questions")
         .select(
-          "id, match_round_id, question_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, questions(id, code, category, question_text, answer_text, note, image_url, audio_url), question_set_items(id, code, category, question_text, answer_text, note, image_url, audio_url)"
+          "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
         )
         .eq("id", currentRqId)
         .maybeSingle();
@@ -487,11 +472,9 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
       const { data: allRoundQuestions, error: allRqError } = await olympia
         .from("round_questions")
         .select(
-          "id, match_round_id, target_player_id, meta, order_index, question_id, question_set_item_id, question_text, answer_text, note"
+          "id, match_round_id, target_player_id, meta, order_index, question_set_item_id, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
         );
       if (!allRqError && allRoundQuestions) {
-        // Merge thay vì overwrite để không làm mất join fields (questions/question_set_items)
-        // Tránh flicker media (image_url/audio_url) khi polling snapshot.
         setRoundQuestions((prev) => {
           const incoming = allRoundQuestions as unknown as RoundQuestionRow[];
           if (!Array.isArray(prev) || prev.length === 0) return incoming;
@@ -509,7 +492,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
           olympia
             .from("round_questions")
             .select(
-              "id, match_round_id, question_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, questions(id, code, category, question_text, answer_text, note, image_url, audio_url), question_set_items(id, code, category, question_text, answer_text, note, image_url, audio_url)"
+              "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
             )
             .eq("id", currentRqId)
             .maybeSingle(),

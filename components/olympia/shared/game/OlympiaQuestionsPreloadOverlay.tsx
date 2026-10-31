@@ -3,20 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
-type RoundQuestionJoin = {
-    image_url?: string | null
-    audio_url?: string | null
-}
-
 type RoundQuestionForPreload = {
     id: string
-    questions?: RoundQuestionJoin | RoundQuestionJoin[] | null
-    question_set_items?: RoundQuestionJoin | RoundQuestionJoin[] | null
-}
-
-function pickJoin<T>(value: T | T[] | null | undefined): T | null {
-    if (!value) return null
-    return Array.isArray(value) ? value[0] ?? null : value
+    image_external_url?: string | null
+    audio_external_url?: string | null
+    media_path?: string | null
 }
 
 function extractAssetUrls(questions: RoundQuestionForPreload[]): { images: string[]; audios: string[] } {
@@ -24,10 +15,10 @@ function extractAssetUrls(questions: RoundQuestionForPreload[]): { images: strin
     const audioSet = new Set<string>()
 
     for (const rq of questions) {
-        const qsi = pickJoin(rq.question_set_items)
-        const q = pickJoin(rq.questions)
-        const imageUrl = (qsi?.image_url ?? q?.image_url ?? null)?.trim() || null
-        const audioUrl = (qsi?.audio_url ?? q?.audio_url ?? null)?.trim() || null
+        const mediaPath = rq.media_path?.trim() || null
+        const mediaIsAudio = Boolean(mediaPath && /\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(mediaPath))
+        const imageUrl = rq.image_external_url?.trim() || (!mediaIsAudio ? mediaPath : null)
+        const audioUrl = rq.audio_external_url?.trim() || (mediaIsAudio ? mediaPath : null)
 
         if (imageUrl) imgSet.add(imageUrl)
         if (audioUrl) audioSet.add(audioUrl)

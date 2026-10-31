@@ -9,21 +9,18 @@ export type CachedRoundQuestionRow = {
   id: string;
   match_round_id: string;
   order_index: number;
-  question_id: string | null;
   question_set_item_id: string | null;
   target_player_id: string | null;
   meta: Record<string, unknown> | null;
   question_text: string | null;
   answer_text: string | null;
   note: string | null;
-  questions:
-    | { image_url?: string | null; audio_url?: string | null }
-    | Array<{ image_url?: string | null; audio_url?: string | null }>
-    | null;
-  question_set_items:
-    | { image_url?: string | null; audio_url?: string | null }
-    | Array<{ image_url?: string | null; audio_url?: string | null }>
-    | null;
+  image_path: string | null;
+  audio_path: string | null;
+  image_external_url: string | null;
+  audio_external_url: string | null;
+  media_path: string | null;
+  letter_count: number | null;
 };
 
 export type WinnerBuzzRow = {
@@ -96,19 +93,12 @@ export type RoundQuestionRow = {
   id: string;
   match_round_id: string;
   order_index: number;
-  question_id: string | null;
   question_set_item_id: string | null;
   target_player_id: string | null;
   meta: Record<string, unknown> | null;
   question_text: string | null;
   answer_text: string | null;
   note: string | null;
-  questions?:
-    | { image_url?: string | null; audio_url?: string | null }
-    | Array<{ image_url?: string | null; audio_url?: string | null }>;
-  question_set_items?:
-    | { image_url?: string | null; audio_url?: string | null }
-    | Array<{ image_url?: string | null; audio_url?: string | null }>;
 };
 
 export type HostData = {

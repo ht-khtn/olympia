@@ -23,7 +23,7 @@ export async function getRoundQuestionsForMatchCached(
       const { data: roundQuestions, error: rqError } = await olympia
         .from("round_questions")
         .select(
-          "id, match_round_id, order_index, question_id, question_set_item_id, target_player_id, meta, question_text, answer_text, note, questions(image_url, audio_url), question_set_items(image_url, audio_url)"
+          "id, match_round_id, order_index, question_set_item_id, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
         )
         .in("match_round_id", roundIds)
         .order("match_round_id", { ascending: true })

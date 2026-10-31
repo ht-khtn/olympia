@@ -22,24 +22,22 @@ type WinnerBuzzRow = {
     match_players: PlayerSummary | PlayerSummary[] | null
 }
 
-type RoundQuestionJoin = {
-    image_url?: string | null
-    audio_url?: string | null
-}
-
 export type HostPreviewRoundQuestion = {
     id: string
     match_round_id: string
     order_index: number
-    question_id: string | null
     question_set_item_id: string | null
     target_player_id: string | null
     meta: Record<string, unknown> | null
     question_text: string | null
     answer_text: string | null
     note: string | null
-    questions?: RoundQuestionJoin | RoundQuestionJoin[] | null
-    question_set_items?: RoundQuestionJoin | RoundQuestionJoin[] | null
+    image_path: string | null
+    audio_path: string | null
+    image_external_url: string | null
+    audio_external_url: string | null
+    media_path: string | null
+    letter_count: number | null
 }
 
 type ActionState = {
@@ -90,11 +88,6 @@ function normalizePlayerSummary(value: PlayerSummary | PlayerSummary[] | null | 
     return Array.isArray(value) ? value[0] ?? null : value
 }
 
-function pickJoin<T>(value: T | T[] | null | undefined): T | null {
-    if (!value) return null
-    return Array.isArray(value) ? value[0] ?? null : value
-}
-
 function detectMediaKind(url: string | null): 'youtube' | 'video' | 'image' | 'link' | null {
     if (!url) return null
     const lower = url.toLowerCase()
@@ -123,10 +116,10 @@ function extractAssetUrls(questions: HostPreviewRoundQuestion[]): { images: stri
     const audioSet = new Set<string>()
 
     for (const rq of questions) {
-        const qsi = pickJoin(rq.question_set_items)
-        const q = pickJoin(rq.questions)
-        const imageUrl = (qsi?.image_url ?? q?.image_url ?? null)?.trim() || null
-        const audioUrl = (qsi?.audio_url ?? q?.audio_url ?? null)?.trim() || null
+        const mediaPath = rq.media_path?.trim() || null
+        const mediaIsAudio = Boolean(mediaPath && /\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(mediaPath))
+        const imageUrl = rq.image_external_url?.trim() || (!mediaIsAudio ? mediaPath : null)
+        const audioUrl = rq.audio_external_url?.trim() || (mediaIsAudio ? mediaPath : null)
 
         if (imageUrl) imgSet.add(imageUrl)
         if (audioUrl) audioSet.add(audioUrl)
@@ -588,10 +581,10 @@ export function HostQuestionPreviewCard(props: Props) {
 
                     {(() => {
                         const rq = previewRoundQuestion
-                        const qsi = pickJoin(rq?.question_set_items)
-                        const q = pickJoin(rq?.questions)
-                        const mediaUrl = (qsi?.image_url ?? q?.image_url ?? null)?.trim() || null
-                        const audioUrl = (qsi?.audio_url ?? q?.audio_url ?? null)?.trim() || null
+                        const mediaPath = rq?.media_path?.trim() || null
+                        const mediaIsAudio = Boolean(mediaPath && /\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(mediaPath))
+                        const mediaUrl = rq?.image_external_url?.trim() || (!mediaIsAudio ? mediaPath : null)
+                        const audioUrl = rq?.audio_external_url?.trim() || (mediaIsAudio ? mediaPath : null)
                         const kind = detectMediaKind(mediaUrl)
                         const yt = kind === 'youtube' && mediaUrl ? toYoutubeEmbed(mediaUrl) : null
 

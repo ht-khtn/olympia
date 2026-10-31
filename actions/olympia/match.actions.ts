@@ -565,7 +565,7 @@ async function generateRoundQuestionsFromSetsAction(
     const { data: itemsData, error: itemsError } = await olympia
       .from("question_set_items")
       .select(
-        "id, code, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, order_index"
+        "id, code, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, order_index"
       )
       .in("question_set_id", questionSetIds)
       .order("order_index", { ascending: true });
@@ -642,6 +642,8 @@ async function generateRoundQuestionsFromSetsAction(
         audio_path: item.audio_path,
         image_external_url: item.image_external_url,
         audio_external_url: item.audio_external_url,
+        media_path: item.media_path,
+        letter_count: item.letter_count,
         target_player_id: null,
         meta: item.code ? { code: item.code } : {},
       }));

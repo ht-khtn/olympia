@@ -472,21 +472,13 @@ export function OlympiaGameClient({
     return effective.filter((e) => (e.event_type ?? null) !== 'reset')
   }, [buzzerEvents, currentQuestionId])
   const currentRoundQuestion = currentQuestionId ? roundQuestions.find((q) => q.id === currentQuestionId) ?? null : null
-  const questionRecord = currentRoundQuestion?.questions
-    ? (Array.isArray(currentRoundQuestion.questions)
-      ? currentRoundQuestion.questions[0] ?? null
-      : currentRoundQuestion.questions)
-    : null
-  const questionSetItemRecord = currentRoundQuestion?.question_set_items
-    ? (Array.isArray(currentRoundQuestion.question_set_items)
-      ? currentRoundQuestion.question_set_items[0] ?? null
-      : currentRoundQuestion.question_set_items)
-    : null
-  const questionText = currentRoundQuestion?.question_text ?? questionRecord?.question_text ?? null
-  const answerText = currentRoundQuestion?.answer_text ?? questionRecord?.answer_text ?? null
-  const noteText = currentRoundQuestion?.note ?? questionRecord?.note ?? null
-  const mediaUrl = (questionSetItemRecord?.image_url ?? questionRecord?.image_url ?? null)?.trim() || null
-  const audioUrl = (questionSetItemRecord?.audio_url ?? questionRecord?.audio_url ?? null)?.trim() || null
+  const questionText = currentRoundQuestion?.question_text ?? null
+  const answerText = currentRoundQuestion?.answer_text ?? null
+  const noteText = currentRoundQuestion?.note ?? null
+  const mediaPath = currentRoundQuestion?.media_path?.trim() || null
+  const mediaIsAudio = Boolean(mediaPath && /\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(mediaPath))
+  const mediaUrl = currentRoundQuestion?.image_external_url?.trim() || (!mediaIsAudio ? mediaPath : null)
+  const audioUrl = currentRoundQuestion?.audio_external_url?.trim() || (mediaIsAudio ? mediaPath : null)
 
   const metaQuestionCode = useMemo(() => {
     const meta = currentRoundQuestion?.meta
@@ -498,10 +490,10 @@ export function OlympiaGameClient({
   }, [currentRoundQuestion?.meta])
 
   const questionCode = useMemo(() => {
-    const raw = (metaQuestionCode ?? questionSetItemRecord?.code ?? questionRecord?.code ?? null)
+    const raw = metaQuestionCode
     const trimmed = typeof raw === 'string' ? raw.trim().toUpperCase() : ''
     return trimmed || null
-  }, [metaQuestionCode, questionRecord?.code, questionSetItemRecord?.code])
+  }, [metaQuestionCode])
 
   const currentQuestionOrderIndex = useMemo(() => {
     const oi = currentRoundQuestion?.order_index
@@ -1820,22 +1812,12 @@ export function OlympiaGameClient({
                       if (trimmed) return trimmed
                     }
 
-                    const qs = rq.question_set_items
-                    const q = rq.questions
-                    const qsiCode = Array.isArray(qs) ? (qs[0]?.code ?? null) : (qs?.code ?? null)
-                    const qCode = Array.isArray(q) ? (q[0]?.code ?? null) : (q?.code ?? null)
-                    const raw = qsiCode ?? qCode ?? null
-                    const trimmed = typeof raw === 'string' ? raw.trim().toUpperCase() : ''
-                    return trimmed || null
+                    return null
                   }
 
                   const resolveRoundQuestionAnswerText = (rq: (typeof roundQuestions)[number] | null) => {
                     if (!rq) return null
-                    const qs = rq.question_set_items
-                    const q = rq.questions
-                    const qsiAns = Array.isArray(qs) ? (qs[0]?.answer_text ?? null) : (qs?.answer_text ?? null)
-                    const qAns = Array.isArray(q) ? (q[0]?.answer_text ?? null) : (q?.answer_text ?? null)
-                    const raw = rq.answer_text ?? qsiAns ?? qAns ?? null
+                    const raw = rq.answer_text
                     const trimmed = typeof raw === 'string' ? raw.trim() : ''
                     return trimmed || null
                   }

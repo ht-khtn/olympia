@@ -56,8 +56,7 @@ export type ScoreRow = {
 export type RoundQuestionRow = {
   id: string;
   match_round_id: string | null;
-  question_id: string | null;
-  question_set_item_id?: string | null;
+  question_set_item_id: string | null;
   order_index: number | null;
   target_player_id: string | null;
   meta?: Record<string, string | number | boolean | null> | null;
@@ -65,53 +64,12 @@ export type RoundQuestionRow = {
   question_text?: string | null;
   answer_text?: string | null;
   note?: string | null;
-  // Tuỳ constraint/foreign key, Supabase có thể trả object hoặc mảng (dù logically là many-to-one).
-  questions?:
-    | {
-        id?: string | null;
-        code?: string | null;
-        category?: string | null;
-        question_text?: string | null;
-        answer_text?: string | null;
-        note?: string | null;
-        image_url?: string | null;
-        audio_url?: string | null;
-      }
-    | Array<{
-        id?: string | null;
-        code?: string | null;
-        category?: string | null;
-        question_text?: string | null;
-        answer_text?: string | null;
-        note?: string | null;
-        image_url?: string | null;
-        audio_url?: string | null;
-      }>
-    | null;
-
-  // Khi migrate sang question_set_items, media thường nằm ở đây.
-  question_set_items?:
-    | {
-        id?: string | null;
-        code?: string | null;
-        category?: string | null;
-        question_text?: string | null;
-        answer_text?: string | null;
-        note?: string | null;
-        image_url?: string | null;
-        audio_url?: string | null;
-      }
-    | Array<{
-        id?: string | null;
-        code?: string | null;
-        category?: string | null;
-        question_text?: string | null;
-        answer_text?: string | null;
-        note?: string | null;
-        image_url?: string | null;
-        audio_url?: string | null;
-      }>
-    | null;
+  image_path: string | null;
+  audio_path: string | null;
+  image_external_url: string | null;
+  audio_external_url: string | null;
+  media_path: string | null;
+  letter_count: number | null;
   // Supabase join có thể trả về object (many-to-one) hoặc mảng (tuỳ select/alias).
   match_rounds?:
     | {
