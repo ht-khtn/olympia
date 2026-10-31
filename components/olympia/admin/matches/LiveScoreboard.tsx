@@ -212,10 +212,18 @@ export function LiveScoreboard({
             ) : null}
 
             {resetScoresAction ? (
-              <form action={resetFormAction} className="flex">
+              <form
+                action={resetFormAction}
+                className="flex"
+                onSubmit={(event) => {
+                  if (!window.confirm('Reset toàn bộ điểm của trận? Hành động này ảnh hưởng trực tiếp đến kết quả.')) {
+                    event.preventDefault()
+                  }
+                }}
+              >
                 <input type="hidden" name="matchId" value={matchId} />
-                <Button type="submit" variant="outline" size="sm" disabled={pendingReset || pendingEdit}>
-                  Reset điểm
+                <Button type="submit" variant="outline" size="sm" disabled={pendingReset || pendingEdit} className="border-rose-200 text-rose-700 hover:bg-rose-50">
+                  Reset toàn bộ điểm
                 </Button>
               </form>
             ) : null}

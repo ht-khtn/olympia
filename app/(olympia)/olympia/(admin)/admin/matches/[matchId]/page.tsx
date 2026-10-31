@@ -287,7 +287,7 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
             <Link href="/olympia/admin">Về dashboard</Link>
           </Button>
           <Button asChild variant="default" size="sm">
-            <Link href={`/olympia/admin/matches/${match.id}/host`}>Mở console host</Link>
+            <Link href={`/olympia/admin/matches/${match.id}/host`}>Mở trung tâm điều khiển Admin</Link>
           </Button>
         </div>
       </div>

@@ -13,7 +13,7 @@ import { HostQuickScoreSection } from '@/components/olympia/admin/matches/HostQu
 import { HostAnswersTabs } from '@/components/olympia/admin/matches/HostAnswersTabs'
 import { VeDichPackageFormComponent } from '@/components/olympia/admin/matches/VeDichPackageFormComponent'
 import { VeDichPackageListener } from '@/components/olympia/admin/matches/VeDichPackageListener'
-import { ArrowLeft, Check, Undo2, X } from 'lucide-react'
+import { Activity, ArrowLeft, Check, CircleDot, Eye, Radio, Undo2, Users, X } from 'lucide-react'
 import {
     autoScoreTangTocFormAction,
     confirmDecisionAndAdvanceFormAction,
@@ -64,6 +64,19 @@ const roundLabelMap: Record<string, string> = {
     vcnv: 'Vượt chướng ngại vật',
     tang_toc: 'Tăng tốc',
     ve_dich: 'Về đích',
+}
+
+const sessionStatusLabel: Record<string, string> = {
+    pending: 'Chờ mở',
+    running: 'Đang diễn ra',
+    ended: 'Đã kết thúc',
+}
+
+const questionStateLabel: Record<string, string> = {
+    hidden: 'Màn chờ',
+    showing: 'Đang hiển thị',
+    answer_revealed: 'Đã mở đáp án',
+    completed: 'Đã hoàn tất',
 }
 
 export function OlympiaHostConsoleView(props: {
@@ -179,6 +192,9 @@ export function OlympiaHostConsoleView(props: {
     })
 
     const selectedTargetPlayerId = currentRoundQuestion?.target_player_id ?? null
+    const currentQuestionLabel = currentRoundQuestion
+        ? `#${currentRoundQuestion.order_index ?? '?'} · ${getRoundQuestionLabel(currentRoundQuestion as unknown as RoundQuestionRow)}`
+        : 'Chưa chọn câu'
 
     const isKhoiDong = liveSession?.current_round_type === 'khoi_dong'
     const isVcnv = liveSession?.current_round_type === 'vcnv'
@@ -297,7 +313,10 @@ export function OlympiaHostConsoleView(props: {
             <VeDichPackageListener />
             <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
                 <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">Host console</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-primary">Admin · Trung tâm điều khiển trực tiếp</p>
+                        <Badge variant="outline">Quyền vận hành</Badge>
+                    </div>
                     <h1 className="truncate text-xl font-semibold">{match.name}</h1>
                 </div>
                 <div className="flex items-center gap-2">
@@ -308,6 +327,54 @@ export function OlympiaHostConsoleView(props: {
                     </Button>
                     <Badge className={statusClass}>{match.status}</Badge>
                 </div>
+            </div>
+
+            <Card className="border-primary/20 bg-primary/[0.03]">
+                <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-primary/10 p-2 text-primary"><Activity className="h-4 w-4" /></div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Trạng thái trận</p>
+                            <p className="font-semibold">{sessionStatusLabel[liveSession?.status ?? ''] ?? 'Chưa mở phòng'}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-slate-100 p-2 text-slate-700"><CircleDot className="h-4 w-4" /></div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Vòng hiện tại</p>
+                            <p className="font-semibold">{roundLabelMap[liveSession?.current_round_type ?? ''] ?? 'Chưa chọn vòng'}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-slate-100 p-2 text-slate-700"><Eye className="h-4 w-4" /></div>
+                        <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">Câu đang live</p>
+                            <p className="truncate font-semibold">{currentQuestionLabel}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-slate-100 p-2 text-slate-700"><Users className="h-4 w-4" /></div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Thí sinh</p>
+                            <p className="font-semibold">{players.length}/4 ghế</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className={`rounded-lg p-2 ${liveSession?.buzzer_enabled ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}><Radio className="h-4 w-4" /></div>
+                        <div>
+                            <p className="text-xs text-muted-foreground">Chuông</p>
+                            <p className="font-semibold">{liveSession?.buzzer_enabled ? 'Đang bật' : 'Đang tắt'}</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant={liveSession?.question_state === 'showing' ? 'default' : 'secondary'}>
+                    {questionStateLabel[liveSession?.question_state ?? ''] ?? 'Chưa có trạng thái câu'}
+                </Badge>
+                <span>•</span>
+                <span>Admin là người xác nhận kết quả và ghi điểm; màn hình trình chiếu chỉ nhận trạng thái từ session.</span>
             </div>
 
             {rounds.length === 0 ? (
@@ -321,8 +388,8 @@ export function OlympiaHostConsoleView(props: {
                 </Card>
             ) : null}
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <div className="lg:col-span-2 space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
+                <div className="min-w-0 space-y-4">
                     <HostQuestionPreviewCard
                         matchId={match.id}
                         liveSession={
@@ -689,11 +756,11 @@ export function OlympiaHostConsoleView(props: {
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <Card>
+                <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                    <Card className="border-primary/20 shadow-sm">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Điều khiển</CardTitle>
-                            <CardDescription>Chọn vòng, chọn thí sinh (tuỳ vòng), chọn câu và thao tác nhanh.</CardDescription>
+                            <CardTitle className="flex items-center gap-2 text-base"><Radio className="h-4 w-4 text-primary" />Bảng điều khiển trận</CardTitle>
+                            <CardDescription>Admin điều hướng vòng, câu hỏi, đồng hồ, chuông và chế độ trình chiếu.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <HostAutoSync
@@ -821,6 +888,38 @@ export function OlympiaHostConsoleView(props: {
                             resetScoresAction={resetMatchScoresAction}
                             editScoreAction={editMatchScoreManualAction}
                         />
+                    ) : null}
+
+                    {data.scoreChanges.length > 0 ? (
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">Lịch sử thay đổi điểm</CardTitle>
+                                <CardDescription>Các thay đổi gần đây do Admin ghi nhận trong trận.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {data.scoreChanges.slice(0, 8).map((change) => {
+                                        const player = players.find((item) => item.id === change.player_id)
+                                        const seat = player?.seat_index != null ? `Ghế ${player.seat_index}` : 'Thí sinh'
+                                        const delta = change.applied_delta > 0 ? `+${change.applied_delta}` : String(change.applied_delta)
+                                        return (
+                                            <div key={change.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-slate-50 px-3 py-2 text-sm">
+                                                <div>
+                                                    <span className="font-medium">{seat}{player?.display_name ? ` · ${player.display_name}` : ''}</span>
+                                                    <span className="ml-2 text-xs text-muted-foreground">{change.reason ?? change.source}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant={change.applied_delta >= 0 ? 'default' : 'destructive'}>{delta} điểm</Badge>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {new Intl.DateTimeFormat('vi-VN', { timeStyle: 'short' }).format(new Date(change.created_at))}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
                     ) : null}
                 </div>
             </div>
