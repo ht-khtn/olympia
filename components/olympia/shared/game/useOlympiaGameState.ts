@@ -24,6 +24,7 @@ import {
 type UseOlympiaGameStateArgs = {
   sessionId: string;
   initialData: GameSessionPayload;
+  viewerMode: "player" | "mc" | "guest";
 };
 
 type TimerSnapshot = {
@@ -129,7 +130,7 @@ const computeRemaining = (deadline: string | null): TimerSnapshot => {
   };
 };
 
-export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameStateArgs) {
+export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseOlympiaGameStateArgs) {
   const [session, setSession] = useState(initialData.session);
   const [scores, setScores] = useState(initialData.scores);
   const [roundQuestions, setRoundQuestions] = useState(initialData.roundQuestions);
@@ -200,6 +201,17 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
 
   const fetchVcnvRevealSnapshot = useCallback(
     async (rqIds: string[]) => {
+      const canReadAnswer =
+        viewerMode === "mc" ||
+        (viewerMode === "player" &&
+          ["answer_revealed", "completed"].includes(
+            sessionRef.current.question_state ?? ""
+          ));
+      if (!canReadAnswer) {
+        setVcnvRevealByRoundQuestionId({});
+        setVcnvLockedWrongByRoundQuestionId({});
+        return;
+      }
       if (rqIds.length === 0) {
         setVcnvRevealByRoundQuestionId({});
         setVcnvLockedWrongByRoundQuestionId({});
@@ -296,7 +308,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
         console.warn("[Olympia] fetch VCNV reveal snapshot failed", err);
       }
     },
-    [matchId, players, resolveRoundQuestionCode, roundQuestions, roundType]
+    [matchId, players, resolveRoundQuestionCode, roundQuestions, roundType, viewerMode]
   );
 
   // Khi router.refresh() hoặc server re-render truyền xuống initialData mới,
@@ -380,6 +392,14 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
     if (!supabase) return;
     try {
       const olympia = supabase.schema("olympia");
+      const canReadAnswers =
+        viewerMode === "mc" ||
+        (viewerMode === "player" &&
+          ["answer_revealed", "completed"].includes(sessionRef.current.question_state ?? ""));
+      if (!canReadAnswers) {
+        setAnswers([]);
+        return;
+      }
       const { data, error } = await olympia
         .from("answers")
         .select(
@@ -396,7 +416,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
     } catch (err) {
       console.warn("[Olympia] fetch answers failed", err);
     }
-  }, []);
+  }, [viewerMode]);
 
   const refreshCurrentRoundQuestion = useCallback(async () => {
     const supabase = supabaseRef.current;
@@ -407,13 +427,19 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
 
     try {
       const olympia = supabase.schema("olympia");
-      const { data: rqRow, error } = await olympia
+      const canReadAnswer =
+        viewerMode === "mc" ||
+        (viewerMode === "player" &&
+          ["answer_revealed", "completed"].includes(sessionRef.current.question_state ?? ""));
+      const questionSelect = canReadAnswer
+        ? "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
+        : "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count";
+      const { data: rawRqRow, error } = await olympia
         .from("round_questions")
-        .select(
-          "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
-        )
+        .select(questionSelect)
         .eq("id", currentRqId)
         .maybeSingle();
+      const rqRow = rawRqRow as unknown as RoundQuestionRow | null;
 
       if (error || !rqRow) return;
 
@@ -428,7 +454,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
     } catch {
       // im lặng: polling nhẹ, không cần spam log
     }
-  }, []);
+  }, [viewerMode]);
 
   const fetchSnapshotOnce = useCallback(async () => {
     const supabase = supabaseRef.current;
@@ -472,7 +498,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
       const { data: allRoundQuestions, error: allRqError } = await olympia
         .from("round_questions")
         .select(
-          "id, match_round_id, target_player_id, meta, order_index, question_set_item_id, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
+          "id, match_round_id, target_player_id, meta, order_index, question_set_item_id, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
         );
       if (!allRqError && allRoundQuestions) {
         setRoundQuestions((prev) => {
@@ -488,12 +514,19 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
       }
 
       if (currentRqId) {
-        const [{ data: rqRow }, { data: buzzerRows }] = await Promise.all([
+        const canReadAnswer =
+          viewerMode === "mc" ||
+          (viewerMode === "player" &&
+            ["answer_revealed", "completed"].includes(
+              sessionRef.current.question_state ?? ""
+            ));
+        const questionSelect = canReadAnswer
+          ? "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
+          : "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count";
+        const [{ data: rawRqRow }, { data: buzzerRows }] = await Promise.all([
           olympia
             .from("round_questions")
-            .select(
-              "id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count"
-            )
+            .select(questionSelect)
             .eq("id", currentRqId)
             .maybeSingle(),
           olympia
@@ -503,6 +536,7 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
             .order("occurred_at", { ascending: false })
             .limit(20),
         ]);
+        const rqRow = rawRqRow as unknown as RoundQuestionRow | null;
 
         if (rqRow) {
           setRoundQuestions((prev) => {
@@ -779,6 +813,13 @@ export function useOlympiaGameState({ sessionId, initialData }: UseOlympiaGameSt
               }
 
               if (evt.entity === "answers") {
+                const canReadAnswers =
+                  viewerMode === "mc" ||
+                  (viewerMode === "player" &&
+                    ["answer_revealed", "completed"].includes(
+                      sessionRef.current.question_state ?? ""
+                    ));
+                if (!canReadAnswers) return;
                 const id = payloadString(evt.payload, "id");
                 const roundQuestionId = payloadString(evt.payload, "roundQuestionId");
                 const playerId = payloadString(evt.payload, "playerId");

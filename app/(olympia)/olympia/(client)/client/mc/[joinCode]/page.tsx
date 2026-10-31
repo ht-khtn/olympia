@@ -6,6 +6,7 @@ import { SessionInfoSidebar } from '@/components/olympia/client/game/SessionInfo
 import { McPasswordGate } from '@/components/olympia/shared/McPasswordGate'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
 import { getServerSupabase } from '@/lib/server-auth'
+import { hasOlympiaGrant } from '@/lib/olympia/session-grants'
 import type { AnswerRow, GameSessionPayload } from '@/types/olympia/game'
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +34,7 @@ async function getMcSessionData(supabase: SupabaseClient, joinCode: string): Pro
     }
 
     if (!session?.match_id) return null
+    if (!(await hasOlympiaGrant({ sessionId: session.id, scope: 'mc' }))) return null
 
     const [{ data: match, error: matchError }, { data: players, error: playersError }] = await Promise.all([
         olympia.from('matches').select('id, name, status, scheduled_at').eq('id', session.match_id).maybeSingle(),

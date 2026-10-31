@@ -105,7 +105,11 @@ export function OlympiaGameClient({
     isRealtimeReady,
     viewerUserId,
     refreshFromServer,
-  } = useOlympiaGameState({ sessionId, initialData })
+  } = useOlympiaGameState({
+    sessionId,
+    initialData,
+    viewerMode: viewerMode ?? (allowGuestFallback ? 'guest' : 'player'),
+  })
 
   const submitAnswerActionTraced = useCallback(
     async (prevState: ActionState, formData: FormData): Promise<ActionState> => {

@@ -115,16 +115,6 @@ export function LiveSessionControls({ matchId, liveSession }: Props) {
 
   const { playerPassword, mcPassword } = extractPasswords(openState.success)
 
-  // Persist extracted passwords immediately to localStorage so reload keeps them
-  if (typeof window !== 'undefined' && playerPassword && mcPassword) {
-    try {
-      const passwords = { playerPassword, mcPassword }
-      localStorage.setItem(`olympia-passwords-${matchId}`, JSON.stringify(passwords))
-    } catch (err) {
-      console.error('Failed to save passwords to localStorage:', err)
-    }
-  }
-
   const disableOpen = liveSession?.status === 'running'
   const disableEnd = !liveSession || liveSession.status !== 'running'
 
@@ -152,17 +142,8 @@ export function LiveSessionControls({ matchId, liveSession }: Props) {
       </form>
 
       {liveSession?.status !== 'ended' && (() => {
-        let persisted: { playerPassword: string | null; mcPassword: string | null } | null = null
-        if (typeof window !== 'undefined') {
-          try {
-            const saved = localStorage.getItem(`olympia-passwords-${matchId}`)
-            persisted = saved ? JSON.parse(saved) : null
-          } catch {
-            // ignore parse errors
-          }
-        }
-        const pPlayer = playerPassword || persisted?.playerPassword
-        const pMc = mcPassword || persisted?.mcPassword
+        const pPlayer = playerPassword
+        const pMc = mcPassword
         return pPlayer && pMc ? (
           <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3">
             <p className="text-xs font-semibold text-green-900">Phòng đã mở thành công!</p>

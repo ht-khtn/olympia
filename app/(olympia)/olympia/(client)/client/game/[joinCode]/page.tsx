@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
 import { getServerAuthContext } from '@/lib/server-auth'
-import type { GameSessionPayload } from '@/types/olympia/game'
+import type { GameSessionPayload, RoundQuestionRow } from '@/types/olympia/game'
+import { hasOlympiaGrant } from '@/lib/olympia/session-grants'
 
 // KEEP force-dynamic: Real-time game state (timer, scores, questions update per-second)
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,11 @@ type PageProps = {
     }
 }
 
-async function getGameSessionData(supabase: SupabaseClient, sessionId: string): Promise<GameSessionPayload | null> {
+async function getGameSessionData(
+    supabase: SupabaseClient,
+    sessionId: string,
+    viewerUserId: string | null
+): Promise<GameSessionPayload | null> {
     const olympia = supabase.schema('olympia')
     const selectWithGuestMediaControl =
         'id, match_id, status, join_code, question_state, current_round_id, current_round_type, current_round_question_id, timer_deadline, requires_player_password, buzzer_enabled, show_scoreboard_overlay, show_answers_overlay, guest_media_control'
@@ -81,7 +86,14 @@ async function getGameSessionData(supabase: SupabaseClient, sessionId: string): 
         console.warn('[Olympia] load players failed', playersError.message)
     }
 
-    const [{ data: scores }, { data: roundQuestions }, { data: buzzerEvents }, { data: starUses }] = await Promise.all([
+    const canReadAnswer =
+        viewerUserId !== null &&
+        (await hasOlympiaGrant({ sessionId: session.id, scope: 'player', userId: viewerUserId })) &&
+        (session.question_state === 'answer_revealed' || session.question_state === 'completed')
+    const roundQuestionSelect = canReadAnswer
+        ? 'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
+        : 'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
+    const [{ data: scores }, { data: rawRoundQuestions }, { data: buzzerEvents }, { data: starUses }] = await Promise.all([
         olympia
             .from('match_scores')
             .select('id, match_id, player_id, round_type, points')
@@ -89,7 +101,7 @@ async function getGameSessionData(supabase: SupabaseClient, sessionId: string): 
         olympia
             .from('round_questions')
             .select(
-                'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
+                roundQuestionSelect
             )
             .eq('match_rounds.match_id', session.match_id)
             .order('order_index', { ascending: true }),
@@ -118,6 +130,8 @@ async function getGameSessionData(supabase: SupabaseClient, sessionId: string): 
         return { ...p, display_name: row.display_name ?? resolved }
     })
 
+    const roundQuestions = rawRoundQuestions as unknown as RoundQuestionRow[] | null
+
     return {
         session,
         match,
@@ -141,7 +155,7 @@ export default async function OlympiaGamePage({ params }: PageProps) {
         notFound()
     }
 
-    const data = await getGameSessionData(supabase, joinCode)
+    const data = await getGameSessionData(supabase, joinCode, authUid)
     if (!data) {
         notFound()
     }
@@ -179,20 +193,9 @@ export default async function OlympiaGamePage({ params }: PageProps) {
         }
     }
 
-    // Check if user has already verified this session (cross-device persistence)
-    let userAlreadyVerified = false
-    if (authUid && data.session.requires_player_password) {
-        const olympia = supabase.schema('olympia')
-        const { data: verification } = await olympia
-            .from('session_verifications')
-            .select('id')
-            .eq('session_id', data.session.id)
-            .eq('user_id', authUid)
-            .gt('expires_at', new Date().toISOString())
-            .maybeSingle()
-
-        userAlreadyVerified = !!verification
-    }
+    const userAlreadyVerified = authUid
+        ? await hasOlympiaGrant({ sessionId: data.session.id, scope: 'player', userId: authUid })
+        : false
 
     const viewerId = appUserId ?? null
     // UI game tự xử lý trạng thái phòng (running/pending/ended)

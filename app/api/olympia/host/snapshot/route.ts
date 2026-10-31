@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerAuthContext } from "@/lib/server-auth";
 import { unstable_cache } from "next/cache";
+import { hasOlympiaGrant } from "@/lib/olympia/session-grants";
 
 const SLOW_SNAPSHOT_LOG_MS = 1200;
 
@@ -28,13 +29,13 @@ const isOlympiaAdminCached = unstable_cache(
   async (appUserId: string): Promise<boolean> => {
     const { supabase } = await getServerAuthContext();
     const olympia = supabase.schema("olympia");
-    const { data: participant, error } = await olympia
-      .from("participants")
+    const { data: role, error } = await olympia
+      .from("user_roles")
       .select("role")
       .eq("user_id", appUserId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return Boolean(participant && participant.role === "AD");
+    return role?.role === "admin";
   },
   ["olympia", "host-snapshot", "is-admin"],
   { revalidate: 60 }
@@ -86,29 +87,7 @@ export async function GET(request: NextRequest) {
     const { supabase, appUserId } = await measure(perf, "getServerAuthContext", () =>
       getServerAuthContext()
     );
-    if (!appUserId) {
-      return NextResponse.json({ error: "FORBIDDEN_OLYMPIA_ADMIN" }, { status: 403 });
-    }
     const olympia = supabase.schema("olympia");
-
-    const isAdmin = await measure(perf, "checkAdminCached", async () => {
-      try {
-        return await isOlympiaAdminCached(appUserId);
-      } catch {
-        // Fallback: nếu cache layer fail, vẫn check trực tiếp.
-        const { data: participant, error } = await olympia
-          .from("participants")
-          .select("role")
-          .eq("user_id", appUserId)
-          .maybeSingle();
-        if (error) throw new Error(error.message);
-        return Boolean(participant && participant.role === "AD");
-      }
-    });
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "FORBIDDEN_OLYMPIA_ADMIN" }, { status: 403 });
-    }
 
     const url = new URL(request.url);
     const matchId = url.searchParams.get("matchId");
@@ -116,6 +95,16 @@ export async function GET(request: NextRequest) {
 
     if (!matchId) {
       return NextResponse.json({ error: "Thiếu matchId." }, { status: 400 });
+    }
+
+    const isAdmin = appUserId
+      ? await measure(perf, "checkAdminCached", () => isOlympiaAdminCached(appUserId))
+      : false;
+    const hasMcGrant = sessionId
+      ? await hasOlympiaGrant({ sessionId, scope: "mc" })
+      : false;
+    if (!isAdmin && !hasMcGrant) {
+      return NextResponse.json({ error: "FORBIDDEN_OLYMPIA_MC" }, { status: 403 });
     }
 
     let currentRoundQuestionId: string | null = null;
@@ -128,7 +117,7 @@ export async function GET(request: NextRequest) {
         () =>
           olympia
             .from("live_sessions")
-            .select("current_round_question_id, question_state")
+            .select("match_id, current_round_question_id, question_state")
             .eq("id", sessionId)
             .maybeSingle()
       );
@@ -138,6 +127,9 @@ export async function GET(request: NextRequest) {
       }
 
       const typed = (sessionRow as LiveSessionRow | null) ?? null;
+      if ((sessionRow as { match_id?: string | null } | null)?.match_id !== matchId) {
+        return NextResponse.json({ error: "Session không thuộc trận." }, { status: 403 });
+      }
       currentRoundQuestionId = typed?.current_round_question_id ?? null;
       questionState = typed?.question_state ?? null;
     }
