@@ -245,7 +245,7 @@ CREATE TABLE olympia.match_scores (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   match_id uuid NOT NULL,
   player_id uuid NOT NULL,
-  round_type text NOT NULL CHECK (round_type = ANY (ARRAY['khoi_dong'::text, 'vcnv'::text, 'tang_toc'::text, 've_dich'::text])),
+  round_type text NOT NULL CHECK (round_type = ANY (ARRAY['khoi_dong'::text, 'vcnv'::text, 'tang_toc'::text, 've_dich'::text, 'manual'::text])),
   points integer NOT NULL DEFAULT 0,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -257,7 +257,7 @@ CREATE TABLE olympia.score_changes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   match_id uuid NOT NULL,
   player_id uuid NOT NULL,
-  round_type text NOT NULL CHECK (round_type = ANY (ARRAY['khoi_dong'::text, 'vcnv'::text, 'tang_toc'::text, 've_dich'::text])),
+  round_type text NOT NULL CHECK (round_type = ANY (ARRAY['khoi_dong'::text, 'vcnv'::text, 'tang_toc'::text, 've_dich'::text, 'manual'::text])),
   requested_delta integer NOT NULL,
   applied_delta integer NOT NULL,
   points_before integer NOT NULL,
@@ -318,4 +318,14 @@ CREATE TABLE olympia.realtime_events (
   CONSTRAINT realtime_events_pkey PRIMARY KEY (id),
   CONSTRAINT realtime_events_match_id_fkey FOREIGN KEY (match_id) REFERENCES olympia.matches(id),
   CONSTRAINT realtime_events_session_id_fkey FOREIGN KEY (session_id) REFERENCES olympia.live_sessions(id)
+);
+CREATE TABLE olympia.session_password_attempts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  access_type text NOT NULL CHECK (access_type = ANY (ARRAY['player'::text, 'mc'::text])),
+  attempt_key_hash text NOT NULL,
+  succeeded boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT session_password_attempts_pkey PRIMARY KEY (id),
+  CONSTRAINT session_password_attempts_session_id_fkey FOREIGN KEY (session_id) REFERENCES olympia.live_sessions(id)
 );
