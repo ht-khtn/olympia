@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { OlympiaGameClient } from '@/components/olympia/shared/game/OlympiaGameClient'
 import { PlayerPasswordGate } from '@/components/olympia/client/game/PlayerPasswordGate'
+import { PlayerStage } from '@/components/olympia/client/game/PlayerStage'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
@@ -202,11 +202,9 @@ export default async function OlympiaGamePage({ params }: PageProps) {
 
     return (
         <PlayerPasswordGate session={data.session} userAlreadyVerified={userAlreadyVerified}>
-            <OlympiaGameClient
+            <PlayerStage
                 initialData={{ ...data, viewerUserId: viewerId }}
                 sessionId={data.session.id}
-                allowGuestFallback={!authUid}
-                viewerMode={!authUid ? 'guest' : 'player'}
             />
         </PlayerPasswordGate>
     )
