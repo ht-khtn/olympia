@@ -63,7 +63,7 @@ async function getGuestSessionData(
         return { payload: null, joinCode: null, matchName: match.name }
     }
 
-    const [{ data: players }, { data: scores }, { data: roundQuestions }, { data: buzzerEvents }, { data: starUses }] = await Promise.all([
+    const [{ data: players }, { data: scores }, { data: roundQuestions }, { data: buzzerEvents }] = await Promise.all([
         olympia
             .from('match_players')
             .select('id, match_id, participant_id, seat_index, display_name, is_disqualified_obstacle')
@@ -88,10 +88,6 @@ async function getGuestSessionData(
                 .order('occurred_at', { ascending: false })
                 .limit(20)
             : Promise.resolve({ data: [] }),
-        olympia
-            .from('star_uses')
-            .select('id, match_id, round_question_id, player_id, outcome, declared_at')
-            .eq('match_id', match.id),
     ])
 
     const obstacleBundle = { obstacle: null, tiles: [], guesses: [] }
@@ -115,7 +111,7 @@ async function getGuestSessionData(
             scores: scores ?? [],
             roundQuestions: roundQuestions ?? [],
             buzzerEvents: buzzerEvents ?? [],
-            starUses: starUses ?? [],
+            starUses: [],
             obstacle: obstacleBundle.obstacle,
             obstacleTiles: obstacleBundle.tiles,
             obstacleGuesses: obstacleBundle.guesses,

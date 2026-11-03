@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { OlympiaGameClient } from '@/components/olympia/shared/game/OlympiaGameClient'
+import { ViewerStage } from '@/components/olympia/client/viewer/ViewerStage'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
 import { getServerSupabase } from '@/lib/server-auth'
 import type { GameSessionPayload } from '@/types/olympia/game'
@@ -154,11 +154,9 @@ export default async function OlympiaGuestPage({ params }: GuestPageProps) {
     }
 
     return (
-        <OlympiaGameClient
+        <ViewerStage
             initialData={payload}
             sessionId={payload.session.id}
-            allowGuestFallback
-            viewerMode="guest"
         />
     )
 }
