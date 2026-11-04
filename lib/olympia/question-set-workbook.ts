@@ -60,7 +60,7 @@ const MEDIA_EXTENSIONS = new Set([
 
 const HEADER_ALIASES: Record<string, string[]> = {
   code: ["code", "ma", "ma vi tri"],
-  order: ["order", "thu tu", "thu tu vi tri"],
+  order: ["order", "thu tu", "thu tu vi tri", "thu tu trong nhom"],
   position: ["position", "vi tri"],
   category: ["category", "linh vuc"],
   question: ["question", "cau hoi", "cau hoi / goi y", "cau hoi goi y"],
@@ -217,6 +217,7 @@ export async function parseQuestionSetWorkbook(
       }
       if (codes.has(code)) throw new Error(`CODE trùng: ${code}.`);
 
+      const note = readOptionalCell(row, headers.get("note"));
       const letterRaw = headers.has("letter_count") ? readCell(row, headers.get("letter_count")!) : "";
       let letterCount: number | null = null;
       if (sheetName === "VCNV") {
@@ -234,7 +235,7 @@ export async function parseQuestionSetWorkbook(
         category: readOptionalCell(row, headers.get("category")) || null,
         question_text: question || null,
         answer_text: answer,
-        note: readOptionalCell(row, headers.get("note")) || null,
+        note: note || null,
         media_filename: media || null,
         letter_count: letterCount,
         order_index: items.length,
