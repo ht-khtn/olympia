@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ViewerStage } from '@/components/olympia/client/viewer/ViewerStage'
-import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
+import { getGuestSnapshot } from '@/lib/olympia/guest-snapshot'
 import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 import type { GameSessionPayload } from '@/types/olympia/game'
 
@@ -53,72 +53,11 @@ async function getGuestSessionData(
         return { payload: null, joinCode: session?.join_code ?? null, matchName: null }
     }
 
-    // Ensure we have a live session if possible
-    const resolvedSession = session
-
-    const [{ data: players }, { data: scores }, { data: roundQuestions }, { data: buzzerEvents }, { data: starUses }] =
-        await Promise.all([
-            olympia
-                .from('match_players')
-                .select('id, match_id, participant_id, seat_index, display_name, is_disqualified_obstacle')
-                .eq('match_id', match.id)
-                .order('seat_index', { ascending: true }),
-            olympia
-                .from('match_scores')
-                .select('id, match_id, player_id, round_type, points')
-                .eq('match_id', match.id),
-            olympia
-                .from('round_questions')
-                .select(
-                    'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
-                )
-                .eq('match_rounds.match_id', match.id)
-                .order('order_index', { ascending: true }),
-            resolvedSession.current_round_question_id
-                ? olympia
-                    .from('buzzer_events')
-                    .select('id, match_id, round_question_id, player_id, event_type, result, occurred_at')
-                    .eq('round_question_id', resolvedSession.current_round_question_id)
-                    .order('occurred_at', { ascending: false })
-                    .limit(20)
-                : Promise.resolve({ data: [] }),
-            olympia
-                .from('star_uses')
-                .select('id, match_id, round_question_id, player_id, outcome, declared_at')
-                .eq('match_id', match.id),
-        ])
-
-    const obstacleBundle = { obstacle: null, tiles: [], guesses: [] }
-
-    const participantIds = (players ?? [])
-        .map((p) => (p as { participant_id?: string | null }).participant_id ?? null)
-        .filter((id): id is string => Boolean(id))
-
-    const nameMap = await resolveDisplayNamesForUserIds(supabase, participantIds)
-
-    const normalizedPlayers = (players ?? []).map((p) => {
-        const row = p as { participant_id?: string | null; display_name?: string | null }
-        const pid = row.participant_id ?? null
-        const resolved = pid ? nameMap.get(pid) ?? null : null
-        return { ...p, display_name: row.display_name ?? resolved }
-    })
+    const payload = await getGuestSnapshot(supabase, session.id)
 
     return {
-        payload: {
-            session: resolvedSession,
-            match,
-            players: normalizedPlayers,
-            scores: scores ?? [],
-            roundQuestions: roundQuestions ?? [],
-            buzzerEvents: buzzerEvents ?? [],
-            starUses: starUses ?? [],
-            obstacle: obstacleBundle.obstacle,
-            obstacleTiles: obstacleBundle.tiles,
-            obstacleGuesses: obstacleBundle.guesses,
-            serverTimestamp: new Date().toISOString(),
-            viewerUserId: null,
-        },
-        joinCode: resolvedSession.join_code ?? null,
+        payload,
+        joinCode: payload?.session.join_code ?? session.join_code ?? null,
         matchName: match.name,
     }
 }

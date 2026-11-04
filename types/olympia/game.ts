@@ -39,7 +39,7 @@ export type MatchRow = {
 export type PlayerRow = {
   id: string;
   match_id: string;
-  participant_id: string;
+  participant_id?: string;
   display_name: string | null;
   seat_index: number;
   is_disqualified_obstacle: boolean;

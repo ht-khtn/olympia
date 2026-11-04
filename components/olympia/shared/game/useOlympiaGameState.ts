@@ -136,7 +136,8 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   const [roundQuestions, setRoundQuestions] = useState(initialData.roundQuestions);
   const [answers, setAnswers] = useState<AnswerRow[]>(initialData.answers ?? []);
   const [starUses, setStarUses] = useState<StarUseRow[]>(initialData.starUses ?? []);
-  const [players] = useState(initialData.players);
+  const [players, setPlayers] = useState(initialData.players);
+  const [match, setMatch] = useState(initialData.match);
   const [buzzerEvents, setBuzzerEvents] = useState<BuzzerEvent[]>(initialData.buzzerEvents ?? []);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isRealtimeReady, setRealtimeReady] = useState(false);
@@ -153,6 +154,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   const retryCountRef = useRef(0);
   const realtimeReadyRef = useRef(false);
   const snapshotInFlightRef = useRef(false);
+  const guestAuthorizedRef = useRef(false);
   const sessionRef = useRef(initialData.session);
   const vcnvTrackedRqIdsRef = useRef<string[]>([]);
   const guardStateRef = useRef<IGuardState>(createInitialGuardState());
@@ -321,6 +323,8 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   useEffect(() => {
     queueMicrotask(() => {
       setSession(initialData.session);
+      setMatch(initialData.match);
+      setPlayers(initialData.players);
       setScores(initialData.scores ?? []);
       setRoundQuestions(initialData.roundQuestions ?? []);
       setAnswers((initialData.answers ?? []) as AnswerRow[]);
@@ -342,6 +346,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     if (!session.current_round_id) return;
 
     const fetchVcnvOnRoundChange = async () => {
+      if (viewerMode === "guest") return;
       const supabase = supabaseRef.current;
       if (!supabase) return;
 
@@ -423,6 +428,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   }, [matchId, sessionId, viewerMode]);
 
   const refreshCurrentRoundQuestion = useCallback(async () => {
+    if (viewerMode === "guest") return;
     const supabase = supabaseRef.current;
     if (!supabase) return;
     const currentRqId = sessionRef.current.current_round_question_id;
@@ -456,9 +462,10 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     } catch {
       // im lặng: polling nhẹ, không cần spam log
     }
-  }, []);
+  }, [viewerMode]);
 
   const fetchSnapshotOnce = useCallback(async () => {
+    if (viewerMode === "guest") return;
     const supabase = supabaseRef.current;
     if (!supabase) return;
     if (typeof document !== "undefined" && document.hidden) return;
@@ -575,6 +582,81 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
       snapshotInFlightRef.current = false;
     }
   }, [fetchAnswersForQuestion, matchId, sessionId, viewerMode]);
+
+  const fetchGuestSnapshot = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    if (snapshotInFlightRef.current) return;
+    snapshotInFlightRef.current = true;
+    try {
+      const url = new URL("/api/olympia/guest/snapshot", window.location.origin);
+      url.searchParams.set("sessionId", sessionId);
+      const response = await fetch(url.toString(), {
+        cache: "no-store",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Guest snapshot request failed");
+      const payload = (await response.json()) as GameSessionPayload;
+      setSession(payload.session);
+      setMatch(payload.match);
+      setPlayers(payload.players);
+      setScores(payload.scores);
+      setRoundQuestions(payload.roundQuestions);
+      setBuzzerEvents((payload.buzzerEvents ?? []) as BuzzerEvent[]);
+      setAnswers(payload.answers ?? []);
+      setStarUses(payload.starUses ?? []);
+      setTimer(computeRemaining(payload.session.timer_deadline));
+      setRealtimeReady(true);
+      setStatusMessage(null);
+    } catch (error) {
+      setRealtimeReady(false);
+      setStatusMessage("Không thể đồng bộ dữ liệu Guest · đang thử lại…");
+      console.warn("[Olympia][Guest] snapshot failed", error);
+    } finally {
+      snapshotInFlightRef.current = false;
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (viewerMode !== "guest") return;
+    let mounted = true;
+
+    const authorize = async () => {
+      try {
+        const response = await fetch("/api/olympia/guest/authorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          cache: "no-store",
+          body: JSON.stringify({
+            sessionId,
+            joinCode: initialData.session.join_code,
+          }),
+        });
+        if (!response.ok) throw new Error("Guest authorization failed");
+        if (!mounted) return;
+        guestAuthorizedRef.current = true;
+        await fetchGuestSnapshot();
+      } catch (error) {
+        setRealtimeReady(false);
+        setStatusMessage("Không thể xác thực quyền xem Guest.");
+        console.warn("[Olympia][Guest] authorization failed", error);
+      }
+    };
+
+    void authorize();
+    return () => {
+      mounted = false;
+      guestAuthorizedRef.current = false;
+    };
+  }, [fetchGuestSnapshot, initialData.session.join_code, sessionId, viewerMode]);
+
+  useEffect(() => {
+    if (viewerMode !== "guest") return;
+    const intervalId = window.setInterval(() => {
+      if (guestAuthorizedRef.current) void fetchGuestSnapshot();
+    }, 2000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchGuestSnapshot, viewerMode]);
 
   const refreshFromServer = useCallback(() => {
     setStatusMessage("Đang đồng bộ dữ liệu mới…");
@@ -898,6 +980,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
       }
     };
 
+    if (viewerMode === "guest") return;
     subscribe();
 
     return () => {
@@ -927,6 +1010,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
 
   // Khi host chuyển câu, load lại danh sách đáp án hiện tại (không reload trang).
   useEffect(() => {
+    if (viewerMode === "guest") return;
     const rqId = session.current_round_question_id;
     if (!rqId) {
       // Tránh setState đồng bộ trong effect (eslint react-hooks/set-state-in-effect)
@@ -937,10 +1021,11 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     queueMicrotask(() => {
       void fetchAnswersForQuestion(rqId);
     });
-  }, [session.current_round_question_id, fetchAnswersForQuestion]);
+  }, [fetchAnswersForQuestion, session.current_round_question_id, viewerMode]);
 
   // Poll nhẹ để cập nhật target_player_id của câu hiện tại (khi host chọn thí sinh)
   useEffect(() => {
+    if (viewerMode === "guest") return;
     if (typeof window === "undefined") return;
     const intervalId = window.setInterval(() => {
       void refreshCurrentRoundQuestion();
@@ -948,9 +1033,10 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [refreshCurrentRoundQuestion]);
+  }, [refreshCurrentRoundQuestion, viewerMode]);
 
   useEffect(() => {
+    if (viewerMode === "guest") return;
     if (typeof document === "undefined") return;
     const handler = () => {
       if (document.hidden) return;
@@ -968,7 +1054,16 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
         clearTimeout(cleanupTimerRef.current);
       }
     };
-  }, [refreshFromServer]);
+  }, [refreshFromServer, viewerMode]);
+
+  useEffect(() => {
+    if (viewerMode !== "guest" || typeof document === "undefined") return;
+    const handler = () => {
+      if (!document.hidden && guestAuthorizedRef.current) void fetchGuestSnapshot();
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [fetchGuestSnapshot, viewerMode]);
 
   const timerLabel = useMemo(() => {
     if (timer.remainingMs === null) return "Đang chờ host";
@@ -979,7 +1074,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   }, [timer.remainingMs]);
 
   return {
-    match: initialData.match,
+    match,
     session,
     players,
     scores,

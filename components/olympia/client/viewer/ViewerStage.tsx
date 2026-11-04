@@ -138,7 +138,7 @@ export function ViewerStage({ initialData, sessionId }: ViewerStageProps) {
         <div className="viewer-stage__header-actions">
           <span className={`viewer-live-indicator ${isRealtimeReady ? '' : 'viewer-live-indicator--offline'}`}>
             <Radio className="h-4 w-4" />
-            {isRealtimeReady ? 'TRỰC TIẾP' : 'ĐANG KẾT NỐI'}
+            {isRealtimeReady ? 'ĐANG CẬP NHẬT' : 'ĐANG KẾT NỐI'}
           </span>
           <button type="button" className="viewer-icon-button" onClick={() => void toggleFullscreen()} aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}>
             <Maximize className="h-5 w-5" />
