@@ -72,7 +72,7 @@ export async function createOlympiaAccountAction(
   _: AccountActionState,
   formData: FormData
 ): Promise<AccountActionState> {
-  const { authUid } = await requireOlympiaAdminContext();
+  const { appUserId } = await requireOlympiaAdminContext();
   const admin = getOlympiaAdminClient();
   const parsed = createAccountSchema.safeParse({
     email: formData.get("email"),
@@ -126,7 +126,7 @@ export async function createOlympiaAccountAction(
       const { error } = await olympia.from("user_roles").insert({
         user_id: userId,
         role: "admin",
-        granted_by: authUid,
+        granted_by: appUserId,
       });
       if (error) throw error;
     }
@@ -168,7 +168,7 @@ export async function updateOlympiaAccountAction(
   _: AccountActionState,
   formData: FormData
 ): Promise<AccountActionState> {
-  const { authUid } = await requireOlympiaAdminContext();
+  const { appUserId } = await requireOlympiaAdminContext();
   const admin = getOlympiaAdminClient();
   const parsed = updateAccountSchema.safeParse({
     userId: formData.get("userId"),
@@ -183,7 +183,7 @@ export async function updateOlympiaAccountAction(
   const payload = parsed.data;
   const { data: authUser, error: authError } = await admin.auth.admin.getUserById(payload.userId);
   if (authError || !authUser.user) return { error: "Tài khoản Auth không tồn tại." };
-  if (payload.userId === authUid && !payload.isAdmin) {
+  if (payload.userId === appUserId && !payload.isAdmin) {
     return { error: "Không thể tự thu hồi quyền Admin của chính mình." };
   }
 
@@ -234,7 +234,7 @@ export async function updateOlympiaAccountAction(
 
   if (payload.isAdmin) {
     const { error } = await olympia.from("user_roles").upsert(
-      { user_id: payload.userId, role: "admin", granted_by: authUid },
+      { user_id: payload.userId, role: "admin", granted_by: appUserId },
       { onConflict: "user_id,role" }
     );
     if (error) return { error: error.message };

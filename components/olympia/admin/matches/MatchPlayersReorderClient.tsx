@@ -19,7 +19,6 @@ type Player = {
 
 type ParticipantInfo = {
     contestant_code: string | null
-    role: string | null
     display_name?: string | null
     class_name?: string | null | Array<{ class_name: string | null }>
 }

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   extractRequiredAssetBasenames,
-  normalizeAssetBasename,
   parseQuestionSetWorkbook,
 } from "@/lib/olympia/question-set-workbook";
 import { requireOlympiaAdminContext } from "@/lib/olympia/olympia-auth";
@@ -341,23 +340,6 @@ export async function uploadQuestionSetAction(
         );
       }
     }
-    for (const item of items) {
-      for (const media of [item.image_url, item.audio_url]) {
-        if (!media || !media.trim()) continue;
-        if (/^https?:\/\//i.test(media) && !/^https:\/\//i.test(media)) {
-          throw new Error("Chỉ chấp nhận URL HTTPS cho tài nguyên ngoài.");
-        }
-        if (/^https:\/\//i.test(media)) {
-          try {
-            const url = new URL(media);
-            if (url.protocol !== "https:") throw new Error("URL tài nguyên không hợp lệ.");
-          } catch {
-            throw new Error("URL tài nguyên không hợp lệ.");
-          }
-        }
-      }
-    }
-
     const { data: createdSet, error: insertSetError } = await olympia
       .from("question_sets")
       .insert({
@@ -376,10 +358,9 @@ export async function uploadQuestionSetAction(
     const batchSize = 500;
     for (let i = 0; i < items.length; i += batchSize) {
       const slice = items.slice(i, i + batchSize).map((item) => {
-        const imageBase = item.image_url ? normalizeAssetBasename(item.image_url) : "";
-        const audioBase = item.audio_url ? normalizeAssetBasename(item.audio_url) : "";
-        const imageIsExternal = Boolean(item.image_url?.trim().match(/^https:\/\//i));
-        const audioIsExternal = Boolean(item.audio_url?.trim().match(/^https:\/\//i));
+        const mediaPath = item.media_filename
+          ? assetManifest[item.media_filename.toLowerCase()]?.path ?? null
+          : null;
 
         return {
           question_set_id: createdSet.id,
@@ -388,19 +369,9 @@ export async function uploadQuestionSetAction(
           question_text: item.question_text,
           answer_text: item.answer_text,
           note: item.note,
-          submitted_by: item.submitted_by,
-          source: item.source,
           order_index: item.order_index,
-          image_path:
-            imageBase && assetManifest[imageBase.toLowerCase()]
-              ? assetManifest[imageBase.toLowerCase()]!.path
-              : null,
-          audio_path:
-            audioBase && assetManifest[audioBase.toLowerCase()]
-              ? assetManifest[audioBase.toLowerCase()]!.path
-              : null,
-          image_external_url: imageIsExternal ? item.image_url : null,
-          audio_external_url: audioIsExternal ? item.audio_url : null,
+          media_path: mediaPath,
+          letter_count: item.letter_count,
         };
       });
 
@@ -412,7 +383,7 @@ export async function uploadQuestionSetAction(
     revalidatePath("/olympia/admin/matches");
     revalidatePath("/olympia/admin");
 
-    const skippedMsg = skipped > 0 ? `, bỏ qua ${skipped} dòng không hợp lệ/trùng mã` : "";
+    const skippedMsg = skipped.length > 0 ? `, bỏ qua ${skipped.length} dòng không hợp lệ/trùng mã` : "";
     return {
       success: `Đã tạo bộ đề "${parsedName.data.name}" với ${items.length} câu${skippedMsg}.`,
     };
