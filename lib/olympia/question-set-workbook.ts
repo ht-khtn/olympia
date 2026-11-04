@@ -59,16 +59,17 @@ const MEDIA_EXTENSIONS = new Set([
 ]);
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  code: ["code", "mã", "ma"],
-  position: ["position", "vị trí", "vi tri"],
-  category: ["category", "lĩnh vực", "linh vuc"],
-  question: ["question", "câu hỏi", "cau hoi"],
-  answer: ["answer", "đáp án", "dap an"],
-  note: ["note", "ghi chú", "ghi chu"],
-  media: ["media", "media filename", "media_filename", "tên file media", "ten file media", "tệp media", "tep media"],
-  letter_count: ["letter_count", "letter count", "số chữ", "so chu"],
-  duration: ["duration", "thời lượng", "thoi luong"],
-  points: ["points", "điểm", "diem"],
+  code: ["code", "ma", "ma vi tri"],
+  order: ["order", "thu tu", "thu tu vi tri"],
+  position: ["position", "vi tri"],
+  category: ["category", "linh vuc"],
+  question: ["question", "cau hoi", "cau hoi / goi y", "cau hoi goi y"],
+  answer: ["answer", "dap an"],
+  note: ["note", "ghi chu", "ghi chu cho mc"],
+  media: ["media", "media filename", "media_filename", "ten file media", "tep media"],
+  letter_count: ["letter_count", "letter count", "so chu"],
+  duration: ["duration", "thoi luong", "thoi gian", "thoi gian giay"],
+  point: ["point", "points", "diem"],
 };
 
 function text(value: ExcelJS.CellValue): string {
@@ -80,7 +81,16 @@ function text(value: ExcelJS.CellValue): string {
 }
 
 function normalizeHeader(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\*/g, " ")
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, " / ")
+    .replace(/\s+/g, " ");
 }
 
 function readCell(row: ExcelJS.Row, index: number): string {
@@ -125,13 +135,23 @@ function findHeaderIndexes(sheet: ExcelJS.Worksheet, required: string[]): Map<st
   sheet.getRow(4).eachCell((cell, index) => {
     const header = normalizeHeader(text(cell.value));
     for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
-      if (aliases.includes(header)) indexes.set(key, index);
+      if (aliases.some((alias) => normalizeHeader(alias) === header)) indexes.set(key, index);
     }
   });
   for (const key of required) {
     if (!indexes.has(key)) throw new Error(`Sheet ${sheet.name} thiếu header ${key} ở hàng 4.`);
   }
   return indexes;
+}
+
+function requireHeader(
+  headers: Map<string, number>,
+  sheetName: string,
+  ...keys: string[]
+): number {
+  const index = keys.map((key) => headers.get(key)).find((value): value is number => value !== undefined);
+  if (index === undefined) throw new Error(`Sheet ${sheetName} thiếu header ${keys.join(" hoặc ")} ở hàng 4.`);
+  return index;
 }
 
 export async function parseQuestionSetWorkbook(
@@ -158,13 +178,14 @@ export async function parseQuestionSetWorkbook(
       continue;
     }
     const requiredHeaders = sheetName === "VCNV"
-      ? ["code", "position", "category", "question", "answer", "letter_count", "media"]
+      ? ["code", "category", "question", "answer", "letter_count", "media"]
       : sheetName === "TANG_TOC"
-        ? ["code", "position", "duration", "category", "question", "answer", "note", "media"]
+        ? ["code", "category", "question", "answer", "note", "duration", "media"]
         : sheetName === "VE_DICH"
-          ? ["code", "points", "position", "category", "question", "answer", "note", "media"]
-          : ["code", "position", "category", "question", "answer", "note", "media"];
+          ? ["code", "category", "question", "answer", "note", "point", "media"]
+          : ["code", "category", "question", "answer", "note", "media"];
     const headers = findHeaderIndexes(sheet, requiredHeaders);
+    requireHeader(headers, sheetName, "position", "order");
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber < 5) return;
