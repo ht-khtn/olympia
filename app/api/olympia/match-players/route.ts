@@ -5,11 +5,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const bodySchema = z.object({
-  matchId: z.string().min(1, "Thiếu matchId"),
+const playerAssignmentSchema = z.object({
   participantId: z.string().uuid("Thí sinh không hợp lệ"),
   seatIndex: z.coerce.number().int().min(1).max(4),
 });
+
+const bodySchema = z.object({
+  matchId: z.string().min(1, "Thiếu matchId"),
+  players: z.array(playerAssignmentSchema).min(1, "Cần thêm ít nhất một thí sinh").max(4),
+}).or(z.object({
+  matchId: z.string().min(1, "Thiếu matchId"),
+  participantId: z.string().uuid("Thí sinh không hợp lệ"),
+  seatIndex: z.coerce.number().int().min(1).max(4),
+}).transform(({ matchId, participantId, seatIndex }) => ({
+  matchId,
+  players: [{ participantId, seatIndex }],
+})));
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -60,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { matchId: matchIdRaw, participantId, seatIndex } = parsedBody.data;
+    const { matchId: matchIdRaw, players } = parsedBody.data;
     const matchId = await resolveMatchId(supabase, matchIdRaw);
     if (!matchId) {
       return NextResponse.json(
@@ -69,45 +80,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if seat is already occupied
-    const { data: existingPlayer } = await olympia
+    const participantIds = players.map((player) => player.participantId);
+    const seatIndexes = players.map((player) => player.seatIndex);
+    if (new Set(participantIds).size !== participantIds.length) {
+      return NextResponse.json({ error: "Không được chọn trùng thí sinh" }, { status: 400 });
+    }
+    if (new Set(seatIndexes).size !== seatIndexes.length) {
+      return NextResponse.json({ error: "Không được chọn trùng ghế" }, { status: 400 });
+    }
+
+    const { data: existingPlayers, error: existingPlayersError } = await olympia
       .from("match_players")
       .select("id")
       .eq("match_id", matchId)
-      .eq("seat_index", seatIndex)
-      .maybeSingle();
-
-    if (existingPlayer) {
-      return NextResponse.json({ error: `Ghế ${seatIndex} đã có thí sinh` }, { status: 409 });
+      .in("seat_index", seatIndexes);
+    if (existingPlayersError) throw existingPlayersError;
+    if (existingPlayers && existingPlayers.length > 0) {
+      return NextResponse.json({ error: "Một hoặc nhiều ghế đã có thí sinh" }, { status: 409 });
     }
 
-    // Check if participant is already in match
-    const { data: existingAssignment } = await olympia
+    const { data: existingAssignments, error: existingAssignmentsError } = await olympia
       .from("match_players")
       .select("id")
       .eq("match_id", matchId)
-      .eq("participant_id", participantId)
-      .maybeSingle();
-
-    if (existingAssignment) {
-      return NextResponse.json({ error: "Thí sinh này đã được gán vào trận" }, { status: 409 });
+      .in("participant_id", participantIds);
+    if (existingAssignmentsError) throw existingAssignmentsError;
+    if (existingAssignments && existingAssignments.length > 0) {
+      return NextResponse.json({ error: "Một hoặc nhiều thí sinh đã được gán vào trận" }, { status: 409 });
     }
 
-    // participants trong schema hiện tại không có display_name; luôn resolve từ public.user_profiles/users.
-    const nameMap = await resolveDisplayNamesForUserIds(supabase, [participantId]);
-    const resolvedDisplayName = nameMap.get(participantId) ?? null;
+    const { data: participants, error: participantsError } = await olympia
+      .from("participants")
+      .select("user_id")
+      .in("user_id", participantIds)
+      .eq("is_active", true);
+    if (participantsError) throw participantsError;
+    if (!participants || participants.length !== participantIds.length) {
+      return NextResponse.json({ error: "Một hoặc nhiều thí sinh không hợp lệ hoặc đã ngừng hoạt động" }, { status: 400 });
+    }
 
-    // Insert new match_player với display_name đã resolve
+    const nameMap = await resolveDisplayNamesForUserIds(supabase, participantIds);
+    const rows = players.map((player) => ({
+      match_id: matchId,
+      participant_id: player.participantId,
+      seat_index: player.seatIndex,
+      display_name: nameMap.get(player.participantId) ?? null,
+    }));
     const { data, error } = await olympia
       .from("match_players")
-      .insert({
-        match_id: matchId,
-        participant_id: participantId,
-        seat_index: seatIndex,
-        display_name: resolvedDisplayName,
-      })
-      .select()
-      .maybeSingle();
+      .insert(rows)
+      .select();
 
     if (error) {
       console.error("[POST /api/olympia/match-players]", error);
@@ -117,7 +139,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json({ players: data }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/olympia/match-players]", err);
     return NextResponse.json(
