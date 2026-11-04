@@ -64,7 +64,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   position: ["position", "vi tri"],
   category: ["category", "linh vuc"],
   question: ["question", "cau hoi", "cau hoi / goi y", "cau hoi goi y"],
-  answer: ["answer", "dap an"],
+  answer: ["answer", "đáp án", "đáp án *", "dap an"],
   note: ["note", "ghi chu", "ghi chu cho mc"],
   media: ["media", "media filename", "media_filename", "ten file media", "tep media"],
   letter_count: ["letter_count", "letter count", "so chu"],
@@ -82,15 +82,14 @@ function text(value: ExcelJS.CellValue): string {
 
 function normalizeHeader(value: string): string {
   return value
+    .toLowerCase()
+    .replace(/đ/g, "d")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\([^)]*\)/g, " ")
-    .replace(/\*/g, " ")
-    .replace(/[\r\n]+/g, " ")
-    .trim()
-    .toLowerCase()
-    .replace(/\s*\/\s*/g, " / ")
-    .replace(/\s+/g, " ");
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function readCell(row: ExcelJS.Row, index: number): string {
@@ -132,14 +131,28 @@ function computedLetterCount(answer: string): number {
 
 function findHeaderIndexes(sheet: ExcelJS.Worksheet, required: string[]): Map<string, number> {
   const indexes = new Map<string, number>();
+  const rawHeaders: string[] = [];
+  const recognizedHeaders: string[] = [];
   sheet.getRow(4).eachCell((cell, index) => {
-    const header = normalizeHeader(text(cell.value));
+    const rawHeader = text(cell.value);
+    const header = normalizeHeader(rawHeader);
+    if (rawHeader) rawHeaders.push(rawHeader);
     for (const [key, aliases] of Object.entries(HEADER_ALIASES)) {
-      if (aliases.some((alias) => normalizeHeader(alias) === header)) indexes.set(key, index);
+      if (aliases.some((alias) => normalizeHeader(alias) === header)) {
+        indexes.set(key, index);
+        recognizedHeaders.push(`${rawHeader} -> ${key}`);
+        break;
+      }
     }
   });
   for (const key of required) {
-    if (!indexes.has(key)) throw new Error(`Sheet ${sheet.name} thiếu header ${key} ở hàng 4.`);
+    if (!indexes.has(key)) {
+      throw new Error(
+        `Sheet ${sheet.name} thiếu header ${key} ở hàng 4. ` +
+        `Header gốc: [${rawHeaders.join(", ")}]. ` +
+        `Header parser nhận diện: [${recognizedHeaders.join(", ")}].`,
+      );
+    }
   }
   return indexes;
 }
