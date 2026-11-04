@@ -11,7 +11,7 @@
  */
 
 // APP_VERSION được inject khi build (xem scripts/inject-version.cjs)
-const APP_VERSION = '2.0.8-cf1ef48';
+const APP_VERSION = "2.0.8-cf1ef48";
 const CACHE_NAMES = {
   static: `static-${APP_VERSION}`,
   pages: `pages-${APP_VERSION}`,
@@ -95,6 +95,12 @@ self.addEventListener("activate", (event) => {
  */
 function getCacheStrategy(url) {
   const pathname = new URL(url).pathname;
+
+  // Olympia APIs contain live and permission-sensitive data.
+  // Always use the network. Never serve or store cached Olympia API responses.
+  if (pathname.startsWith("/api/olympia/")) {
+    return "network-only";
+  }
 
   // Cache session API for faster load (but revalidate on every request)
   if (pathname.includes("/session")) {
@@ -271,7 +277,7 @@ async function cacheFirst(request) {
   }
 
   try {
-    // Cache miss, fetch from network
+    // Cache miss - fetch from network
     const response = await fetch(request);
 
     // Cache successful responses
@@ -282,7 +288,7 @@ async function cacheFirst(request) {
 
     return response;
   } catch {
-    // Network failed and no cache
+    // Network failed
     return new Response("Offline", {
       status: 503,
       statusText: "Service Unavailable",
@@ -406,7 +412,7 @@ self.addEventListener("message", (event) => {
       break;
 
     case "CACHE_URLS":
-      // Cache URLs individually and report progress to clients
+      // Cache URLs individually and report progress
       event.waitUntil(
         (async () => {
           try {
@@ -509,7 +515,7 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 /**
- * Sync event - background sync for offline actions
+ * Sync event - background sync
  */
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-violations") {
