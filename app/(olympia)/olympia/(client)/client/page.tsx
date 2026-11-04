@@ -2,12 +2,10 @@ import Link from 'next/link'
 import { JoinQuickTabs } from '@/components/olympia/client/client/JoinQuickTabs'
 import { LiveScheduleRealtime } from '@/components/olympia/client/client/LiveScheduleRealtime'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getServerAuthContext } from '@/lib/server-auth'
 import { cache } from 'react'
-import { Calendar } from 'lucide-react'
 import { OlympiaAccountMenu } from '@/components/olympia/client/OlympiaAccountMenu'
 
 // ISR: Match schedule updates every 30s. Real-time listener handles live updates.
@@ -76,7 +74,7 @@ export default async function OlympiaClientHomePage() {
 
         <div className="grid gap-3 lg:grid-cols-3">
           {/* Join Card */}
-          <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 lg:col-span-2">
+          <Card className="border-blue-200 bg-linear-to-r from-blue-50 to-cyan-50 lg:col-span-2">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">⚡ Tham gia nhanh</CardTitle>
               <CardDescription>Chọn vai trò (Thí sinh/MC/Khách) và nhập thông tin cần thiết</CardDescription>

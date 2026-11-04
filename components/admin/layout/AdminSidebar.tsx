@@ -141,16 +141,16 @@ function AdminSidebarComponent() {
               <span className="text-lg font-bold">E</span>
             </div>
             <div className="space-y-1">
-              <Skeleton className="h-4 w-28 bg-muted/70" />
-              <Skeleton className="h-3 w-16 bg-muted/70" />
+              <Skeleton className="h-4 w-28 bg-slate-200 dark:bg-slate-700" />
+              <Skeleton className="h-3 w-16 bg-slate-200 dark:bg-slate-700" />
             </div>
           </div>
         </SidebarHeader>
         <SidebarContent className="bg-sidebar">
           <div className="space-y-3 p-4">
-            <Skeleton className="h-8 w-full bg-muted/70" />
-            <Skeleton className="h-8 w-full bg-muted/70" />
-            <Skeleton className="h-8 w-full bg-muted/70" />
+            <Skeleton className="h-8 w-full bg-slate-200 dark:bg-slate-700" />
+            <Skeleton className="h-8 w-full bg-slate-200 dark:bg-slate-700" />
+            <Skeleton className="h-8 w-full bg-slate-200 dark:bg-slate-700" />
           </div>
         </SidebarContent>
       </Sidebar>

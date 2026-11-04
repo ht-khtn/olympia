@@ -295,7 +295,7 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
         </div>
       </div>
 
-      <Card className="border-primary/20 bg-primary/[0.03]">
+      <Card className="border-primary/20 bg-primary/3">
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>

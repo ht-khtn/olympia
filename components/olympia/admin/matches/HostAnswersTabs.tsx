@@ -65,11 +65,11 @@ export function HostAnswersTabs(props: Props) {
 
     return (
         <Tabs defaultValue="cau-tra-loi" className="w-full">
-            <TabsList>
+            <TabsList className="h-10 w-full justify-start rounded-lg bg-slate-100 p-1 sm:w-auto">
                 <TabsTrigger value="cau-tra-loi">Câu trả lời</TabsTrigger>
                 <TabsTrigger value="dap-an">Đáp án</TabsTrigger>
             </TabsList>
-            <TabsContent value="cau-tra-loi" className="mt-2">
+            <TabsContent value="cau-tra-loi" className="mt-3">
                 <HostLiveAnswersCard
                     matchId={matchId}
                     sessionId={sessionId}
@@ -88,7 +88,7 @@ export function HostAnswersTabs(props: Props) {
                     confirmDecisionsBatchFormAction={confirmDecisionsBatchFormAction}
                 />
             </TabsContent>
-            <TabsContent value="dap-an" className="mt-2">
+            <TabsContent value="dap-an" className="mt-3">
                 <HostAnswersByTimeCard
                     matchId={matchId}
                     sessionId={sessionId}

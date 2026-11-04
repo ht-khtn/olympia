@@ -313,7 +313,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
         console.warn("[Olympia] fetch VCNV reveal snapshot failed", err);
       }
     },
-    [matchId, players, resolveRoundQuestionCode, roundQuestions, roundType, viewerMode]
+    [players, resolveRoundQuestionCode, roundQuestions, roundType, sessionId, viewerMode]
   );
 
   // Khi router.refresh() hoặc server re-render truyền xuống initialData mới,
@@ -456,7 +456,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     } catch {
       // im lặng: polling nhẹ, không cần spam log
     }
-  }, [viewerMode]);
+  }, []);
 
   const fetchSnapshotOnce = useCallback(async () => {
     const supabase = supabaseRef.current;
@@ -574,7 +574,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     } finally {
       snapshotInFlightRef.current = false;
     }
-  }, [fetchAnswersForQuestion, matchId, sessionId]);
+  }, [fetchAnswersForQuestion, matchId, sessionId, viewerMode]);
 
   const refreshFromServer = useCallback(() => {
     setStatusMessage("Đang đồng bộ dữ liệu mới…");
@@ -915,7 +915,15 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
         channelRef.current.unsubscribe();
       }
     };
-  }, [sessionId, matchId, fetchSnapshotOnce, fetchVcnvRevealSnapshot, computeVcnvRowQuestionIds]);
+  }, [
+    sessionId,
+    matchId,
+    fetchSnapshotOnce,
+    fetchVcnvRevealSnapshot,
+    computeVcnvRowQuestionIds,
+    fetchAnswersForQuestion,
+    viewerMode,
+  ]);
 
   // Khi host chuyển câu, load lại danh sách đáp án hiện tại (không reload trang).
   useEffect(() => {

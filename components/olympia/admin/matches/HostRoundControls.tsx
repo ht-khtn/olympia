@@ -755,7 +755,11 @@ export function HostRoundControls({
 
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
+      <div className="border-b border-slate-200 pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Điều khiển chính</p>
+        <p className="mt-1 text-xs text-muted-foreground">Vòng, câu hỏi, đồng hồ và thí sinh đang thao tác.</p>
+      </div>
       <div className="grid gap-2">
         <Label className="text-xs">Âm thanh</Label>
         <div className="flex items-center justify-end gap-2">
@@ -1012,7 +1016,11 @@ export function HostRoundControls({
         </form>
       ) : null}
 
-      <div className="grid gap-2">
+      <details className="group rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+        <summary className="cursor-pointer list-none text-xs font-semibold text-slate-700 marker:hidden">
+          <span className="flex items-center justify-between">Trình chiếu & media <span className="text-muted-foreground transition-transform group-open:rotate-180">⌄</span></span>
+        </summary>
+        <div className="mt-3 grid gap-2">
         <Label className="text-xs">Intro video</Label>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
@@ -1157,10 +1165,11 @@ export function HostRoundControls({
             </Button>
           </form>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <div className="grid gap-2">
-        <Label className="text-xs">Giao diện hiện tại</Label>
+      <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+        <Label className="text-xs font-semibold">Giao diện trình chiếu</Label>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
             <input

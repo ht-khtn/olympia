@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -260,7 +261,7 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
             {isWaitingScreen ? <input type="hidden" name="trial" value="1" /> : null}
             <button type="submit" disabled={!canBuzz} className="player-buzzer-button">
               <Bell className="h-8 w-8" />
-              <span>{canBuzz ? 'BẤM CHUÔNG' : 'CHƯA THỂ BẤM'}</span>
+              <span>{canBuzz ? 'Bấm chuông' : 'CHƯA THỂ BẤM'}</span>
             </button>
           </form>
         </div>

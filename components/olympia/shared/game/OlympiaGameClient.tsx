@@ -1629,7 +1629,7 @@ export function OlympiaGameClient({
       >
         {/* Popup mất mạng: KHÔNG hiện trên guest */}
         {!isGuest && !isOnline ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-70 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="w-[min(520px,calc(100%-2rem))] rounded-lg border bg-background p-6 text-foreground">
               <p className="text-sm font-semibold">Không có kết nối Internet</p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -1654,25 +1654,25 @@ export function OlympiaGameClient({
 
             <div className="min-w-0 flex-1 flex justify-center">
               {resolvedViewerMode === 'player' ? (
-                <div className="flex flex-wrap justify-center gap-2 max-w-[720px]">
-                  <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center min-w-[220px]">
+                <div className="flex flex-wrap justify-center gap-2 max-w-180">
+                  <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center min-w-55">
                     <p className="text-xs uppercase tracking-widest text-slate-200 truncate">Thí sinh</p>
                     <p className="text-sm text-slate-100 truncate">{viewerSeatNameText ?? '—'}</p>
                   </div>
-                  <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center min-w-[220px]">
+                  <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center min-w-55">
                     <p className="text-xs uppercase tracking-widest text-slate-200 truncate">Bấm chuông</p>
                     <p className="text-sm text-slate-100 truncate">{playerBuzzerLabel ?? '—'}</p>
                   </div>
                 </div>
               ) : isMc ? (
-                <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center max-w-[520px]">
+                <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center max-w-130">
                   <p className="text-xs uppercase tracking-widest text-slate-200 truncate">Realtime</p>
                   <p className="text-sm text-slate-100 truncate">
                     {turnStatusText?.trim() ? turnStatusText : 'Chế độ MC: chỉ quan sát.'}
                   </p>
                 </div>
               ) : turnStatusText ? (
-                <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center max-w-[520px]">
+                <div className="rounded-md px-3 py-1 bg-slate-900/50 border border-slate-700/50 text-center max-w-130">
                   <p className="text-xs uppercase tracking-widest text-slate-200 truncate">Realtime</p>
                   <p className="text-sm text-slate-100 truncate">{turnStatusText ?? '—'}</p>
                 </div>
@@ -1708,7 +1708,7 @@ export function OlympiaGameClient({
 
         {/* Overlay bảng điểm lớn (đồng bộ theo host) */}
         {showBigScoreboard ? (
-          <div className={cn(isMc ? 'absolute inset-0 z-[60]' : 'fixed inset-0 z-[60]')}>
+          <div className={cn(isMc ? 'absolute inset-0 z-60' : 'fixed inset-0 z-60')}>
             <div
               className="absolute inset-0"
               style={{
@@ -1738,7 +1738,7 @@ export function OlympiaGameClient({
                         return seatA - seatB
                       })
                       .map((p, index) => (
-                        <div key={p.id} className="w-full h-[170px] sm:h-[190px]">
+                        <div key={p.id} className="w-full h-42.5 sm:h-47.5">
                           <OlympiaQuestionFrame
                             embedded
                             open
@@ -2011,10 +2011,10 @@ export function OlympiaGameClient({
                             <img
                               src={mediaUrl}
                               alt="CNV"
-                              className="h-[360px] w-full object-cover"
+                              className="h-90 w-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-[360px] w-full items-center justify-center text-sm text-slate-300">
+                            <div className="flex h-90 w-full items-center justify-center text-sm text-slate-300">
                               (Chưa có ảnh CNV)
                             </div>
                           )}
@@ -2096,7 +2096,7 @@ export function OlympiaGameClient({
                       >
                         {showQuestionText && !isMediaExpanded ? (
                           <div className={cn('flex flex-col', showQuestionMedia && !isQuestionShort ? 'lg:pr-4' : '')}>
-                            <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
+                            <div className="max-h-130 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
                               <p
                                 className={cn(
                                   questionFontSize,
@@ -2143,19 +2143,19 @@ export function OlympiaGameClient({
                                     <img
                                       src={mediaUrl}
                                       alt="Media câu hỏi"
-                                      className={cn('w-full object-contain rounded', isMediaExpanded ? 'max-h-[720px]' : 'max-h-[520px]')}
+                                      className={cn('w-full object-contain rounded', isMediaExpanded ? 'max-h-180' : 'max-h-130')}
                                     />
                                   ) : mediaKind === 'video' ? (
                                     <video
                                       ref={syncedVideoRef}
                                       playsInline
                                       src={mediaUrl}
-                                      className={cn('w-full rounded bg-black', isMediaExpanded ? 'max-h-[720px]' : 'max-h-[520px]')}
+                                      className={cn('w-full rounded bg-black', isMediaExpanded ? 'max-h-180' : 'max-h-130')}
                                       tabIndex={-1}
                                       controls
                                     />
                                   ) : mediaKind === 'youtube' && youtubeEmbedUrl ? (
-                                    <div className={cn('aspect-video w-full overflow-hidden rounded bg-black', isMediaExpanded ? 'max-h-[720px]' : '')}>
+                                    <div className={cn('aspect-video w-full overflow-hidden rounded bg-black', isMediaExpanded ? 'max-h-180' : '')}>
                                       <iframe
                                         src={youtubeEmbedUrl}
                                         title="Video câu hỏi"
@@ -2202,7 +2202,7 @@ export function OlympiaGameClient({
                           'flex flex-col',
                           showQuestionMedia && !isQuestionShort ? 'lg:pr-4' : ''
                         )}>
-                          <div className="max-h-[420px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
+                          <div className="max-h-105 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
                             <p className={cn(
                               questionFontSize,
                               'font-semibold leading-snug whitespace-pre-wrap text-slate-50'
@@ -2250,7 +2250,7 @@ export function OlympiaGameClient({
                                     alt="Media câu hỏi"
                                     className={cn(
                                       'w-full object-contain rounded',
-                                      isMediaExpanded ? 'max-h-[600px]' : 'max-h-[420px]'
+                                      isMediaExpanded ? 'max-h-150' : 'max-h-105'
                                     )}
                                   />
                                 ) : mediaKind === 'video' ? (
@@ -2260,14 +2260,14 @@ export function OlympiaGameClient({
                                     src={mediaUrl}
                                     className={cn(
                                       'w-full rounded bg-black',
-                                      isMediaExpanded ? 'max-h-[600px]' : 'max-h-[420px]'
+                                      isMediaExpanded ? 'max-h-150' : 'max-h-105'
                                     )}
                                     tabIndex={-1}
                                   />
                                 ) : mediaKind === 'youtube' && youtubeEmbedUrl ? (
                                   <div className={cn(
                                     'aspect-video w-full overflow-hidden rounded bg-black',
-                                    isMediaExpanded ? 'max-h-[600px]' : ''
+                                    isMediaExpanded ? 'max-h-150' : ''
                                   )}>
                                     <iframe
                                       src={youtubeEmbedUrl}
@@ -2296,7 +2296,7 @@ export function OlympiaGameClient({
 
                       {/* Hiển thị lại chữ khi không có media hoặc media chưa phóng to */}
                       {showQuestionText && !showQuestionMedia ? (
-                        <div className="max-h-[420px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
+                        <div className="max-h-105 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
                           <p className={cn(
                             questionFontSize,
                             'font-semibold leading-snug whitespace-pre-wrap text-slate-50'
@@ -2367,7 +2367,7 @@ export function OlympiaGameClient({
                             name="answer"
                             placeholder="Nhập đáp án"
                             disabled={disableAnswerSubmit}
-                            className="w-[220px] bg-slate-900/70 border-slate-600 text-white placeholder:text-slate-300"
+                            className="w-55 bg-slate-900/70 border-slate-600 text-white placeholder:text-slate-300"
                           />
                           <FormSubmitButton disabled={disableAnswerSubmit}>Gửi</FormSubmitButton>
                         </form>

@@ -166,7 +166,7 @@ export function MatchPlayersReorderClient({ matchId, players, participantLookup,
                                 : 'border-slate-200 hover:border-slate-300 hover:bg-slate-100 cursor-move'
                                 }`}
                         >
-                            <GripVertical className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
+                            <GripVertical className="w-5 h-5 shrink-0 text-muted-foreground" />
                             <div className="flex-1">
                                 <p className="text-sm font-medium">Ghế {index + 1}: {`${code} - ${name} - ${cls}`}</p>
                             </div>

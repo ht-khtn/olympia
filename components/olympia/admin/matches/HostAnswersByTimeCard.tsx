@@ -199,8 +199,8 @@ export function HostAnswersByTimeCard(props: Props) {
     }, [answers])
 
     return (
-        <Card>
-            <CardHeader className="pb-3">
+        <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="border-b bg-slate-50/60 pb-3">
                 <CardTitle className="text-base">Đáp án</CardTitle>
                 <CardDescription>
                     Thứ tự theo thời gian trả lời (response time). Ẩn thao tác ở vòng không áp dụng.
@@ -218,7 +218,7 @@ export function HostAnswersByTimeCard(props: Props) {
                             const canScoreVcnv = isVcnv && row && row.is_correct == null
                             const labels = { correct: 'Đúng (+10)', wrong: 'Sai (0)', timeout: 'Hết giờ (0)' }
                             return (
-                                <div key={p.id} className="rounded-md border bg-slate-50 p-3">
+                                <div key={p.id} className="rounded-lg border border-slate-200 bg-background p-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="text-sm font-medium">{seatText}{nameText}</p>
                                         <div className="flex items-center gap-2">
@@ -231,14 +231,14 @@ export function HostAnswersByTimeCard(props: Props) {
                                     <p className="mt-2 whitespace-pre-wrap text-sm">
                                         {row?.answer_text?.trim() ? row.answer_text : <span className="text-muted-foreground">(Chưa có/Trống)</span>}
                                     </p>
-                                    <p className="mt-2 text-xs text-muted-foreground">
+                                    <p className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                                         {typeof row?.response_time_ms === 'number' ? `${row.response_time_ms} ms` : '(chưa xác định thời gian)'}
                                     </p>
                                     {isTangToc ? (
                                         <p className="mt-2 text-xs text-muted-foreground">Tăng tốc: chấm tự động theo thứ tự thời gian.</p>
                                     ) : null}
                                     {canScoreVcnv ? (
-                                        <div className="mt-3 grid grid-cols-3 gap-2">
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
                                             <form action={confirmVcnvRowDecisionFormAction} className="col-span-1">
                                                 <input type="hidden" name="sessionId" value={sessionId ?? ''} />
                                                 <input type="hidden" name="playerId" value={p.id} />

@@ -246,7 +246,7 @@ export function AddPlayersToMatch({
                                     </div>
 
                                     {/* Chọn ghế */}
-                                    <div className="w-[105px]">
+                                    <div className="w-26.25">
                                         <Select
                                             value={assignment.seatIndex}
                                             onValueChange={(value) =>

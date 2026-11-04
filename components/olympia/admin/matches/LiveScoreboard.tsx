@@ -190,8 +190,8 @@ export function LiveScoreboard({
   )
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-slate-200 shadow-sm">
+      <CardHeader className="border-b bg-slate-50/60">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <CardTitle>{title}</CardTitle>
@@ -242,7 +242,7 @@ export function LiveScoreboard({
                 {sortedScores.map((player, index) => (
                   <div
                     key={player.playerId}
-                    className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                    className="flex items-center gap-3 rounded-lg border border-slate-200 bg-background px-3 py-2"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-700">
                       {index + 1}
@@ -282,7 +282,7 @@ export function LiveScoreboard({
                 {sortedScores.map((player, index) => (
                   <div
                     key={player.playerId}
-                    className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                    className="flex items-center gap-3 rounded-lg border border-slate-200 bg-background px-3 py-2"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-700">
                       {index + 1}

@@ -179,7 +179,7 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
     }, [players, sorted])
 
     return (
-        <div className={embedded ? 'absolute inset-0 z-[60]' : 'fixed inset-0 z-[60]'}>
+        <div className={embedded ? 'absolute inset-0 z-60' : 'fixed inset-0 z-60'}>
             <div
                 className="absolute inset-0"
                 style={{
@@ -210,7 +210,7 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
                                         : '(chưa xác định)'
 
                                 return (
-                                    <div key={player.id} className="w-full h-[170px] sm:h-[190px]">
+                                    <div key={player.id} className="w-full h-42.5 sm:h-47.5">
                                         <OlympiaQuestionFrame
                                             embedded
                                             open

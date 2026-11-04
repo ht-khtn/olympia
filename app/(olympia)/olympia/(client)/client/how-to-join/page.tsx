@@ -24,7 +24,7 @@ export default function HowToJoinPage() {
                 <div className="grid gap-6 lg:grid-cols-3">
                     {/* Player Mode */}
                     <Card className="border-2 border-blue-300 overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-2" />
+                        <div className="bg-linear-to-r from-blue-400 to-blue-600 h-2" />
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <Badge className="bg-blue-600">Thí sinh</Badge>
@@ -68,7 +68,7 @@ export default function HowToJoinPage() {
 
                     {/* Guest Mode */}
                     <Card className="border-2 border-green-300 overflow-hidden">
-                        <div className="bg-gradient-to-r from-green-400 to-green-600 h-2" />
+                        <div className="bg-linear-to-r from-green-400 to-green-600 h-2" />
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <Badge variant="outline" className="border-green-600 text-green-600">Khách</Badge>
@@ -112,7 +112,7 @@ export default function HowToJoinPage() {
 
                     {/* MC Mode */}
                     <Card className="border-2 border-purple-300 overflow-hidden">
-                        <div className="bg-gradient-to-r from-purple-400 to-purple-600 h-2" />
+                        <div className="bg-linear-to-r from-purple-400 to-purple-600 h-2" />
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <Badge variant="secondary" className="bg-purple-600">MC</Badge>

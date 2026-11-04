@@ -525,8 +525,8 @@ export function HostLiveAnswersCard({
     }
 
     return (
-        <Card>
-            <CardHeader className="pb-3">
+        <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="border-b bg-slate-50/60 pb-3">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <CardTitle className="text-base">Câu trả lời</CardTitle>
@@ -613,7 +613,7 @@ export function HostLiveAnswersCard({
                             const selectedBatchDecision = batchDecisionByPlayerId.get(pl.id) ?? null
 
                             return (
-                                <div key={pl.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                                <div key={pl.id} className="rounded-lg border border-slate-200 bg-background p-3 transition-colors hover:border-slate-300">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="text-sm font-medium">
                                             {seatText}
@@ -632,7 +632,7 @@ export function HostLiveAnswersCard({
                                         </div>
                                     </div>
 
-                                    <p className="mt-2 whitespace-pre-wrap text-sm">
+                                    <p className="mt-2 min-h-7 whitespace-pre-wrap text-sm leading-6">
                                         {latest?.answer_text?.trim() ? (
                                             latest.answer_text
                                         ) : (
@@ -650,7 +650,7 @@ export function HostLiveAnswersCard({
                                         <p className="mt-2 text-xs text-muted-foreground">Đã chấm (VCNV).</p>
                                     ) : null}
 
-                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
                                         {batchEnabled ? (
                                             <>
                                                 <Button

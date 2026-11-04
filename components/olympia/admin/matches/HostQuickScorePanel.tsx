@@ -124,13 +124,13 @@ export function HostQuickScorePanel(props: Props) {
     }
 
     return (
-        <div className="mt-4 rounded-md border bg-background p-3">
+        <div className="mt-4 rounded-lg border border-primary/20 bg-primary/3 p-4 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">{hint}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{hint}</p>
                     {scoringPlayerLabel ? (
                         <p className="text-xs text-muted-foreground">
-                            Đang chấm điểm cho thí sinh <span className="font-semibold">({scoringPlayerLabel})</span>
+                            Đang chấm điểm cho <span className="font-semibold text-foreground">{scoringPlayerLabel}</span>
                         </p>
                     ) : null}
                 </div>
@@ -183,7 +183,7 @@ export function HostQuickScorePanel(props: Props) {
                 ) : null}
             </div>
 
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
                 {isVeDich ? (
                     <>
                         <form

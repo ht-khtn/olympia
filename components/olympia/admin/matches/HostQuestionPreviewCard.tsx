@@ -394,7 +394,7 @@ export function HostQuestionPreviewCard(props: Props) {
     }, [assets.audios, assets.images, preloadKey, preloadTotal])
 
     return (
-        <Card>
+        <Card className="overflow-hidden border-slate-200 shadow-sm">
             {isPreloading ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
                     <div className="rounded-lg border bg-background p-6 w-[min(520px,calc(100%-2rem))]">
@@ -414,10 +414,13 @@ export function HostQuestionPreviewCard(props: Props) {
                 </div>
             ) : null}
 
-            <CardHeader className="pb-3">
+            <CardHeader className="border-b bg-slate-50/70 pb-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <CardTitle className="text-base">Câu hỏi</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <span className="h-2 w-2 rounded-full bg-primary" />
+                            Câu hỏi
+                        </CardTitle>
                         <CardDescription>{descriptionText}</CardDescription>
                     </div>
 
@@ -438,7 +441,7 @@ export function HostQuestionPreviewCard(props: Props) {
                         <select
                             value={previewId}
                             onChange={(e) => setPreviewId(e.target.value)}
-                            className="w-[220px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                            className="w-55 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                             disabled={options.length === 0}
                             aria-label="Danh sách câu hỏi"
                         >
@@ -480,7 +483,8 @@ export function HostQuestionPreviewCard(props: Props) {
                                 title="Show lên (đổi câu đang live)"
                                 aria-label="Show lên (đổi câu đang live)"
                             >
-                                <Eye />
+                                <Eye className="mr-1 h-4 w-4" />
+                                <span className="hidden sm:inline">Show</span>
                             </Button>
                         </form>
                     </div>
@@ -575,8 +579,8 @@ export function HostQuestionPreviewCard(props: Props) {
                         ) : null}
                     </div>
 
-                    <p className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-relaxed">
-                        {previewQuestionText ?? (previewRoundQuestion ? `ID: ${previewRoundQuestion.id}` : 'Chưa có câu hỏi')}
+                    <p className="mt-3 min-h-20 whitespace-pre-wrap text-xl font-semibold leading-relaxed tracking-tight sm:text-2xl">
+                        {previewQuestionText ?? (previewRoundQuestion ? 'Câu hỏi chưa có nội dung' : 'Chưa có câu hỏi')}
                     </p>
 
                     {(() => {
@@ -591,7 +595,7 @@ export function HostQuestionPreviewCard(props: Props) {
                         if (!mediaUrl && !audioUrl) return null
 
                         return (
-                            <div className="mt-4 rounded-md border bg-white p-3 space-y-3">
+                            <div className="mt-4 min-h-24 rounded-md border bg-slate-50/70 p-3 space-y-3">
                                 {mediaUrl ? (
                                     <div className="space-y-2">
                                         <p className="text-xs font-semibold text-slate-700">Ảnh/Video</p>
@@ -600,10 +604,10 @@ export function HostQuestionPreviewCard(props: Props) {
                                             <img
                                                 src={mediaUrl}
                                                 alt="Media câu hỏi"
-                                                className="w-full max-h-[360px] object-contain rounded"
+                                                className="w-full max-h-90 object-contain rounded"
                                             />
                                         ) : kind === 'video' ? (
-                                            <video controls playsInline src={mediaUrl} className="w-full max-h-[360px] rounded bg-black" />
+                                            <video controls playsInline src={mediaUrl} className="w-full max-h-90 rounded bg-black" />
                                         ) : kind === 'youtube' && yt ? (
                                             <div className="aspect-video w-full overflow-hidden rounded bg-black">
                                                 <iframe
@@ -654,7 +658,7 @@ export function HostQuestionPreviewCard(props: Props) {
                     })()}
 
                     {previewAnswerText ? (
-                        <div className="mt-4 rounded-md border bg-slate-50 p-3">
+                        <div className="mt-4 rounded-lg border-l-4 border-slate-300 bg-slate-50 p-3">
                             <p className="text-xs font-semibold text-slate-700">Đáp án</p>
                             <p className="mt-1 whitespace-pre-wrap text-sm">{previewAnswerText}</p>
                             {previewNoteText ? (
@@ -664,7 +668,7 @@ export function HostQuestionPreviewCard(props: Props) {
                     ) : null}
 
                     {liveSession?.current_round_type === 've_dich' && toggleStarUseFormAction && previewRoundQuestion ? (
-                        <div className="mt-4 rounded-md border bg-amber-50 p-3">
+                        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex-1">
                                     <p className="text-xs font-semibold text-amber-900">Ngôi sao hy vọng</p>

@@ -309,15 +309,15 @@ export function OlympiaHostConsoleView(props: {
     })
 
     const jsx = (
-        <section className="space-y-4">
+        <section className="min-h-screen space-y-5 bg-slate-50/60 pb-8">
             <VeDichPackageListener />
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-background/95 pb-3">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-primary">Admin · Trung tâm điều khiển trực tiếp</p>
-                        <Badge variant="outline">Quyền vận hành</Badge>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Admin · Host Console</p>
+                        <Badge variant="outline" className="text-[11px]">Quyền vận hành</Badge>
                     </div>
-                    <h1 className="truncate text-xl font-semibold">{match.name}</h1>
+                    <h1 className="truncate text-2xl font-semibold tracking-tight">{match.name}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button asChild variant="ghost" size="icon-sm" title="Về chi tiết trận" aria-label="Về chi tiết trận">
@@ -327,10 +327,10 @@ export function OlympiaHostConsoleView(props: {
                     </Button>
                     <Badge className={statusClass}>{match.status}</Badge>
                 </div>
-            </div>
+            </header>
 
-            <Card className="border-primary/20 bg-primary/[0.03]">
-                <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+            <Card className="border-slate-200 bg-background shadow-sm">
+                <CardContent className="grid gap-0 divide-y p-0 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5 [&>div]:p-3">
                     <div className="flex items-center gap-3">
                         <div className="rounded-lg bg-primary/10 p-2 text-primary"><Activity className="h-4 w-4" /></div>
                         <div>
@@ -609,7 +609,7 @@ export function OlympiaHostConsoleView(props: {
                                                 </select>
                                                 <input
                                                     name="guessText"
-                                                    className="flex-1 min-w-[220px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                                    className="flex-1 min-w-55 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                                                     placeholder="Nhập từ khóa CNV…"
                                                     aria-label="Từ khóa CNV"
                                                 />
@@ -878,21 +878,29 @@ export function OlympiaHostConsoleView(props: {
                         </CardContent>
                     </Card>
 
+                </div>
+            </div>
+
+            <section className="space-y-3">
+                <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Scoreboard workspace</p>
+                    <h2 className="text-lg font-semibold">Kết quả & lịch sử điểm</h2>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
                     {scores.length > 0 ? (
                         <LiveScoreboard
                             matchId={match.id}
                             initialScoreRows={scoreRows}
                             scores={scores}
                             title="Xếp hạng"
-                            description=""
+                            description="Điểm số realtime của bốn thí sinh"
                             resetScoresAction={resetMatchScoresAction}
                             editScoreAction={editMatchScoreManualAction}
                         />
                     ) : null}
-
                     {data.scoreChanges.length > 0 ? (
-                        <Card>
-                            <CardHeader className="pb-3">
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader className="border-b bg-slate-50/60 pb-3">
                                 <CardTitle className="text-base">Lịch sử thay đổi điểm</CardTitle>
                                 <CardDescription>Các thay đổi gần đây do Admin ghi nhận trong trận.</CardDescription>
                             </CardHeader>
@@ -922,7 +930,7 @@ export function OlympiaHostConsoleView(props: {
                         </Card>
                     ) : null}
                 </div>
-            </div>
+            </section>
         </section>
     )
 
