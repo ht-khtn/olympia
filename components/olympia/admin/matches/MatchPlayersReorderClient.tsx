@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button } from '@/components/ui/button'
@@ -21,26 +21,6 @@ type ParticipantInfo = {
     contestant_code: string | null
     display_name?: string | null
     class_name?: string | null | Array<{ class_name: string | null }>
-}
-
-type PlayerAddedEventDetail = {
-    id: string
-    match_id?: string
-    seat_index: number
-    display_name: string | null
-    participant_id: string | null
-    participantInfo?: ParticipantInfo
-}
-
-function isPlayerAddedEventDetail(value: unknown): value is PlayerAddedEventDetail {
-    if (!value || typeof value !== 'object') return false
-    const detail = value as Record<string, unknown>
-    return (
-        typeof detail.id === 'string' &&
-        typeof detail.seat_index === 'number' &&
-        (typeof detail.display_name === 'string' || detail.display_name === null) &&
-        (typeof detail.participant_id === 'string' || detail.participant_id === null)
-    )
 }
 
 type UpdateMatchPlayersOrderAction = (prevState: ActionState, formData: FormData) => Promise<ActionState>
@@ -68,37 +48,16 @@ export function MatchPlayersReorderClient({ matchId, players, participantLookup,
     const [playerList, setPlayerList] = useState<Player[]>(initialSorted)
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [isRemoving, setIsRemoving] = useState(false)
+    const syncedPlayersSignature = useRef(
+        initialSorted.map((player) => `${player.id}:${player.seat_index}`).join('|'),
+    )
 
-    // Listen for player-added events to update list without full reload
     useEffect(() => {
-        function onPlayerAdded(e: Event) {
-            const detail = e instanceof CustomEvent ? e.detail : null
-            if (!isPlayerAddedEventDetail(detail)) return
-            // only add if belongs to this match
-            // detail.match_id may or may not exist; defensively check
-            const matchIdOfDetail = detail.match_id
-            if (matchIdOfDetail && matchIdOfDetail !== matchId) return
-
-            setPlayerList((prev) => {
-                // ignore if already exists
-                if (prev.some((p) => p.id === detail.id)) return prev
-                const merged = [
-                    ...prev,
-                    {
-                        id: detail.id,
-                        seat_index: detail.seat_index,
-                        display_name: detail.display_name ?? null,
-                        participant_id: detail.participant_id ?? null,
-                        participant_info: detail.participantInfo ?? undefined,
-                    },
-                ]
-                return merged.sort((a, b) => a.seat_index - b.seat_index)
-            })
-        }
-
-        window.addEventListener('olympia:player-added', onPlayerAdded as EventListener)
-        return () => window.removeEventListener('olympia:player-added', onPlayerAdded as EventListener)
-    }, [matchId])
+        const nextSignature = initialSorted.map((player) => `${player.id}:${player.seat_index}`).join('|')
+        if (draggedIndex !== null || nextSignature === syncedPlayersSignature.current) return
+        syncedPlayersSignature.current = nextSignature
+        setPlayerList(initialSorted)
+    }, [draggedIndex, initialSorted])
 
     const [orderState, formAction] = useActionState(updateOrderAction, actionInitialState)
 

@@ -126,18 +126,18 @@ async function fetchMatchDetail(matchId: string) {
         .select('user_id, contestant_code, is_active')
         .eq('is_active', true)
         .order('contestant_code', { ascending: true })
-      if (error) return { data: [] as Array<Record<string, unknown>>, error }
+      if (error) throw error
       const userIds = (data ?? []).map((row) => row.user_id)
       const { data: profiles, error: profilesError } = await olympia
         .from('profiles')
         .select('id, display_name')
         .in('id', userIds)
-      if (profilesError) return { data: [] as Array<Record<string, unknown>>, error: profilesError }
+      if (profilesError) throw profilesError
       const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile.display_name]))
       const users: Array<{ id: string; email?: string }> = []
       for (let page = 1; ; page += 1) {
         const result = await admin.auth.admin.listUsers({ page, perPage: 1000 })
-        if (result.error) return { data: [] as Array<Record<string, unknown>>, error: result.error }
+        if (result.error) throw result.error
         users.push(...result.data.users.map((user) => ({ id: user.id, email: user.email })))
         if (result.data.users.length < 1000) break
       }
@@ -155,9 +155,8 @@ async function fetchMatchDetail(matchId: string) {
   ])
 
   if (liveSessionResult.error) throw liveSessionResult.error
-  if (playersResult.error) {
-    console.warn('[Olympia] Failed to load match players:', playersResult.error.message)
-  }
+  if (playersResult.error) throw playersResult.error
+  if (allParticipantsResult.error) throw allParticipantsResult.error
   if (roundsResult.error) throw roundsResult.error
   if (tournamentResult && tournamentResult.error) throw tournamentResult.error
 
@@ -180,12 +179,16 @@ async function fetchMatchDetail(matchId: string) {
       .in('user_id', playerParticipantIds)
 
     if (participantError) {
-      console.warn('[Olympia] Failed to load participants:', participantError.message)
+      throw participantError
     } else if (participants && participants.length > 0) {
       type SimpleParticipant = { user_id: string; contestant_code?: string | null; is_active?: boolean }
       const participantsList = participants as SimpleParticipant[]
       const userIds = participantsList.map((p) => p.user_id)
-      const { data: profiles } = await olympia.from('profiles').select('id, display_name').in('id', userIds)
+      const { data: profiles, error: profilesError } = await olympia
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', userIds)
+      if (profilesError) throw profilesError
       const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile.display_name]))
 
       participantLookup = new Map(
@@ -314,15 +317,13 @@ export default async function OlympiaMatchDetailPage({ params }: { params: Promi
               <a
                 key={step.label}
                 href={step.href}
-                className={`rounded-lg border p-3 transition-colors hover:border-primary/50 ${
-                  step.complete ? 'border-green-200 bg-green-50/70' : 'border-slate-200 bg-white'
-                }`}
+                className={`rounded-lg border p-3 transition-colors hover:border-primary/50 ${step.complete ? 'border-green-200 bg-green-50/70' : 'border-slate-200 bg-white'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                      step.complete ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${step.complete ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
                   >
                     {step.complete ? '✓' : index + 1}
                   </span>
