@@ -6,6 +6,7 @@ import { useFormStatus } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 
 import type { ActionState } from '@/app/(olympia)/olympia/actions'
 
@@ -44,6 +45,7 @@ function ReorderSubmitButton() {
 }
 
 export function MatchPlayersReorderClient({ matchId, players, participantLookup, updateOrderAction }: MatchPlayersReorderClientProps) {
+    const router = useRouter()
     const initialSorted = useMemo(() => [...players].sort((a, b) => a.seat_index - b.seat_index), [players])
     const [playerList, setPlayerList] = useState<Player[]>(initialSorted)
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -63,11 +65,12 @@ export function MatchPlayersReorderClient({ matchId, players, participantLookup,
 
     useEffect(() => {
         if (orderState.error) toast.error(orderState.error)
+
         if (orderState.success) {
             toast.success(orderState.success)
-            window.location.reload()
+            router.refresh()
         }
-    }, [orderState.error, orderState.success])
+    }, [orderState.error, orderState.success, router])
 
     function handleDragStart(index: number) {
         setDraggedIndex(index)
@@ -98,10 +101,12 @@ export function MatchPlayersReorderClient({ matchId, players, participantLookup,
 
     async function handleRemovePlayer(playerId: string) {
         setIsRemoving(true)
+
         try {
-            const response = await fetch(`/api/olympia/match-players-remove?id=${playerId}`, {
-                method: 'DELETE',
-            })
+            const response = await fetch(
+                `/api/olympia/match-players-remove?id=${playerId}`,
+                { method: 'DELETE' },
+            )
 
             if (!response.ok) {
                 const result: { error?: string } = await response.json()
@@ -112,7 +117,7 @@ export function MatchPlayersReorderClient({ matchId, players, participantLookup,
             setPlayerList((prev) => prev.filter((p) => p.id !== playerId))
             toast.success('Đã xóa thí sinh khỏi trận')
 
-            setTimeout(() => window.location.reload(), 500)
+            router.refresh()
         } catch (error) {
             console.error('[RemovePlayer]', error)
             toast.error('Lỗi khi xóa thí sinh')
