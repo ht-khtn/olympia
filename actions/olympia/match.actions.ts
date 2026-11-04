@@ -297,7 +297,7 @@ export async function uploadQuestionSetAction(
 
     type AssetManifestEntry = { name: string; path: string };
     const rawManifest = formData.get("assetManifest");
-    let assetManifest: Record<string, AssetManifestEntry> = {};
+    const assetManifest: Record<string, AssetManifestEntry> = {};
     try {
       if (typeof rawManifest === "string" && rawManifest.trim().length > 0) {
         const parsedManifest: unknown = JSON.parse(rawManifest);

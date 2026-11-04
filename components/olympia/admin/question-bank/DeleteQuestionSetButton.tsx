@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useActionState, useCallback, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -24,28 +24,22 @@ export function DeleteQuestionSetButton({ questionSetId, questionSetName }: { qu
     const [open, setOpen] = useState(false)
     const [nonce, setNonce] = useState(0)
     const router = useRouter()
-    const [state, formAction, pending] = useActionState(deleteQuestionSetAction, initialState)
-    const lastToastRef = useRef<string | null>(null)
-
-    useEffect(() => {
-        const message = state.error ?? state.success
-        if (!message) return
-        if (lastToastRef.current === message) return
-        lastToastRef.current = message
-
-        if (state.error) toast.error(message)
-        if (state.success) {
-            toast.success(message)
+    const submitAction = useCallback(async (previousState: DeleteQuestionSetState, formData: FormData) => {
+        const result = await deleteQuestionSetAction(previousState, formData)
+        if (result.error) toast.error(result.error)
+        if (result.success) {
+            toast.success(result.success)
             setOpen(false)
             router.refresh()
         }
-    }, [router, state.error, state.success])
+        return result
+    }, [router])
+    const [, formAction, pending] = useActionState(submitAction, initialState)
 
     const handleOpenChange = (value: boolean) => {
         setOpen(value)
         if (!value) {
             setNonce((v) => v + 1)
-            lastToastRef.current = null
         }
     }
 

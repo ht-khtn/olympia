@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -34,6 +33,26 @@ type MatchPlayer = {
     match_id: string
 }
 
+type CreatedMatchPlayer = {
+    id: string
+    match_id: string
+    participant_id: string
+    seat_index: number
+    display_name: string | null
+}
+
+function isCreatedMatchPlayer(value: unknown): value is CreatedMatchPlayer {
+    if (!value || typeof value !== 'object') return false
+    const record = value as Record<string, unknown>
+    return (
+        typeof record.id === 'string' &&
+        typeof record.match_id === 'string' &&
+        typeof record.participant_id === 'string' &&
+        typeof record.seat_index === 'number' &&
+        (typeof record.display_name === 'string' || record.display_name === null)
+    )
+}
+
 interface AddPlayersToMatchProps {
     matchId: string
     availableParticipants: Participant[]
@@ -47,7 +66,6 @@ export function AddPlayersToMatch({
     currentPlayers,
     onAddSuccess,
 }: AddPlayersToMatchProps) {
-    const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
     const [selectedParticipant, setSelectedParticipant] = useState<string>('')
     const [selectedSeat, setSelectedSeat] = useState<string>('')
@@ -109,14 +127,10 @@ export function AddPlayersToMatch({
 
             // Try to update client components without full page reload by
             // dispatching a custom event with the created player data and participant info.
-            try {
-                const created = result as any
-                if (created && typeof window !== 'undefined') {
-                    const detail = { ...created, participantInfo }
-                    window.dispatchEvent(new CustomEvent('olympia:player-added', { detail }))
-                }
-            } catch (err) {
-                // ignore
+            const created = isCreatedMatchPlayer(result) ? result : null
+            if (created && typeof window !== 'undefined') {
+                const detail = { ...created, participantInfo }
+                window.dispatchEvent(new CustomEvent('olympia:player-added', { detail }))
             }
         } catch (error) {
             console.error('[AddPlayersToMatch]', error)

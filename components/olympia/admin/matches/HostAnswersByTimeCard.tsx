@@ -32,11 +32,6 @@ function payloadNumber(payload: RealtimeEventPayload, key: string): number | nul
     return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function payloadBoolean(payload: RealtimeEventPayload, key: string): boolean | null {
-    const value = payload[key]
-    return typeof value === 'boolean' ? value : null
-}
-
 export type AnswerRow = {
     id: string
     player_id: string
@@ -113,7 +108,7 @@ export function HostAnswersByTimeCard(props: Props) {
         } catch {
             return
         }
-    }, [effectiveRoundQuestionId, matchId])
+    }, [effectiveRoundQuestionId, matchId, sessionId])
 
     useEffect(() => {
         // Snapshot 1 lần khi đổi câu để không miss các đáp án đã submit trước khi subscribe.

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useActionState, useCallback, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Edit } from 'lucide-react'
@@ -30,28 +30,22 @@ export function EditTournamentDialog({
   const [open, setOpen] = useState(false)
   const [nonce, setNonce] = useState(0)
   const router = useRouter()
-  const [state, formAction, pending] = useActionState(updateTournamentAction, initialState)
-  const lastToastRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    const message = state.error ?? state.success
-    if (!message) return
-    if (lastToastRef.current === message) return
-    lastToastRef.current = message
-
-    if (state.error) toast.error(message)
-    if (state.success) {
-      toast.success(message)
+  const submitAction = useCallback(async (previousState: ActionState, formData: FormData) => {
+    const result = await updateTournamentAction(previousState, formData)
+    if (result.error) toast.error(result.error)
+    if (result.success) {
+      toast.success(result.success)
       setOpen(false)
       router.refresh()
     }
-  }, [router, state.error, state.success])
+    return result
+  }, [router])
+  const [, formAction, pending] = useActionState(submitAction, initialState)
 
   const handleOpenChange = (value: boolean) => {
     setOpen(value)
     if (!value) {
       setNonce((v) => v + 1)
-      lastToastRef.current = null
     }
   }
 

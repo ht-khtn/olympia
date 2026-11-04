@@ -23,6 +23,26 @@ type ParticipantInfo = {
     class_name?: string | null | Array<{ class_name: string | null }>
 }
 
+type PlayerAddedEventDetail = {
+    id: string
+    match_id?: string
+    seat_index: number
+    display_name: string | null
+    participant_id: string | null
+    participantInfo?: ParticipantInfo
+}
+
+function isPlayerAddedEventDetail(value: unknown): value is PlayerAddedEventDetail {
+    if (!value || typeof value !== 'object') return false
+    const detail = value as Record<string, unknown>
+    return (
+        typeof detail.id === 'string' &&
+        typeof detail.seat_index === 'number' &&
+        (typeof detail.display_name === 'string' || detail.display_name === null) &&
+        (typeof detail.participant_id === 'string' || detail.participant_id === null)
+    )
+}
+
 type UpdateMatchPlayersOrderAction = (prevState: ActionState, formData: FormData) => Promise<ActionState>
 
 export interface MatchPlayersReorderClientProps {
@@ -52,12 +72,11 @@ export function MatchPlayersReorderClient({ matchId, players, participantLookup,
     // Listen for player-added events to update list without full reload
     useEffect(() => {
         function onPlayerAdded(e: Event) {
-            const detail = (e as CustomEvent).detail as any
-            if (!detail) return
+            const detail = e instanceof CustomEvent ? e.detail : null
+            if (!isPlayerAddedEventDetail(detail)) return
             // only add if belongs to this match
             // detail.match_id may or may not exist; defensively check
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const matchIdOfDetail = (detail as any).match_id as string | undefined
+            const matchIdOfDetail = detail.match_id
             if (matchIdOfDetail && matchIdOfDetail !== matchId) return
 
             setPlayerList((prev) => {

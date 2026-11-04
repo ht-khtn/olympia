@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useActionState } from 'react'
 import { AlertCircle, Bell, CheckCircle2, Clock3, Wifi, WifiOff } from 'lucide-react'
 import { submitAnswerAction, triggerBuzzerAction, type ActionState } from '@/app/(olympia)/olympia/actions'
@@ -36,7 +36,7 @@ function findCurrentQuestion(
 }
 
 export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
-  const [answer, setAnswer] = useState('')
+  const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({})
   const [answerSentForQuestion, setAnswerSentForQuestion] = useState<string | null>(null)
   const [answerState, answerAction] = useActionState(submitAnswerAction, initialActionState)
   const [buzzerState, buzzerAction] = useActionState(triggerBuzzerAction, initialActionState)
@@ -101,7 +101,7 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
     isTarget &&
     !player?.is_disqualified_obstacle &&
     !currentAnswer &&
-    answerSentForQuestion !== currentQuestionId
+    (answerSentForQuestion !== currentQuestionId || Boolean(answerState.error))
   const canBuzz =
     session.status === 'running' &&
     session.buzzer_enabled !== false &&
@@ -118,14 +118,7 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
   const feedbackIsError = Boolean(answerState.error ?? buzzerState.error)
   const displayName = player?.display_name ?? 'Thí sinh'
 
-  useEffect(() => {
-    setAnswer('')
-    setAnswerSentForQuestion(null)
-  }, [currentQuestionId])
-
-  useEffect(() => {
-    if (answerState.error) setAnswerSentForQuestion(null)
-  }, [answerState.error])
+  const answer = currentQuestionId ? answersByQuestion[currentQuestionId] ?? '' : ''
 
   function handleAnswerSubmit() {
     if (currentQuestionId) setAnswerSentForQuestion(currentQuestionId)
@@ -225,7 +218,13 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
               <input
                 name="answer"
                 value={answer}
-                onChange={(event) => setAnswer(event.target.value)}
+                onChange={(event) => {
+                  if (!currentQuestionId) return
+                  setAnswersByQuestion((previous) => ({
+                    ...previous,
+                    [currentQuestionId]: event.target.value,
+                  }))
+                }}
                 disabled={!canAnswer}
                 placeholder={canAnswer ? 'Nhập đáp án…' : 'Chưa đến lượt trả lời'}
                 autoComplete="off"

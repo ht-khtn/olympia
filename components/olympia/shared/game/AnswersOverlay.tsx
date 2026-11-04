@@ -37,11 +37,6 @@ function payloadNumber(payload: RealtimeEventPayload, key: string): number | nul
     return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function payloadBoolean(payload: RealtimeEventPayload, key: string): boolean | null {
-    const value = payload[key]
-    return typeof value === 'boolean' ? value : null
-}
-
 type Props = {
     session: LiveSessionRow
     match: { id: string; name: string }
@@ -73,7 +68,7 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
         } catch {
             // ignore
         }
-    }, [currentQuestionId])
+    }, [currentQuestionId, session.id])
 
     useEffect(() => {
         void fetchAnswers()
