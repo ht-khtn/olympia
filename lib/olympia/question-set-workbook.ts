@@ -65,7 +65,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   question: ["question", "câu hỏi", "cau hoi"],
   answer: ["answer", "đáp án", "dap an"],
   note: ["note", "ghi chú", "ghi chu"],
-  media: ["media", "media filename", "tệp media", "tep media"],
+  media: ["media", "media filename", "media_filename", "tên file media", "ten file media", "tệp media", "tep media"],
   letter_count: ["letter_count", "letter count", "số chữ", "so chu"],
   duration: ["duration", "thời lượng", "thoi luong"],
   points: ["points", "điểm", "diem"],
@@ -87,10 +87,20 @@ function readCell(row: ExcelJS.Row, index: number): string {
   return text(row.getCell(index).value);
 }
 
-function toLoadBuffer(buffer: ArrayBuffer | Uint8Array | Buffer): ArrayBuffer {
-  if (buffer instanceof ArrayBuffer) return buffer;
-  const bytes = new Uint8Array(buffer);
-  return bytes.slice().buffer;
+function readOptionalCell(row: ExcelJS.Row, index: number | undefined): string {
+  return index === undefined ? "" : readCell(row, index);
+}
+
+/**
+ * ExcelJS/JSZip đọc được Uint8Array, còn File.arrayBuffer() có thể đi kèm
+ * vùng nhớ backing không phù hợp với generic Buffer của Node typings. Sao
+ * chép dữ liệu vào Uint8Array độc lập trước khi parse workbook.xml.
+ */
+function toLoadBuffer(buffer: ArrayBuffer | Uint8Array | Buffer): Uint8Array<ArrayBuffer> {
+  if (buffer instanceof ArrayBuffer) return new Uint8Array(buffer);
+  const bytes = new Uint8Array(buffer.byteLength);
+  bytes.set(buffer);
+  return bytes;
 }
 
 function validateMediaFilename(raw: string, code: string): string {
@@ -128,7 +138,8 @@ export async function parseQuestionSetWorkbook(
   buffer: ArrayBuffer | Uint8Array | Buffer,
 ): Promise<ParsedQuestionSetWorkbook> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(toLoadBuffer(buffer));
+  const loadBuffer = toLoadBuffer(buffer);
+  await workbook.xlsx.load(loadBuffer);
   const actualNames = new Set(workbook.worksheets.map((sheet) => sheet.name));
   const missingSheets = QUESTION_SET_SHEETS.filter((name) => !actualNames.has(name));
   if (missingSheets.length > 0) throw new Error(`Workbook thiếu sheet: ${missingSheets.join(", ")}.`);
@@ -186,10 +197,10 @@ export async function parseQuestionSetWorkbook(
       const item: ParsedQuestionSetItem = {
         code,
         sheet: sheetName,
-        category: readCell(row, headers.get("category")!) || null,
+        category: readOptionalCell(row, headers.get("category")) || null,
         question_text: question || null,
         answer_text: answer,
-        note: readCell(row, headers.get("note")!) || null,
+        note: readOptionalCell(row, headers.get("note")) || null,
         media_filename: media || null,
         letter_count: letterCount,
         order_index: items.length,

@@ -114,8 +114,8 @@ export function UploadQuestionSetDialog({ onDone }: Props) {
       <DialogTrigger asChild><Button size="sm">Tạo bộ đề (.xlsx)</Button></DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import bộ đề V4(1)</DialogTitle>
-          <DialogDescription>Workbook được kiểm tra trước khi import. Quy tắc CODE, sheet và media vẫn do parser V4(1) hiện có xử lý.</DialogDescription>
+          <DialogTitle>Import bộ đề V4</DialogTitle>
+          <DialogDescription>Workbook được kiểm tra trước khi import theo đúng cấu trúc 7 sheet, CODE và media của mẫu V4.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid gap-2 rounded-lg border bg-slate-50 p-3 text-xs sm:grid-cols-3">

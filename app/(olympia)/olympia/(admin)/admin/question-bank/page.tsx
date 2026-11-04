@@ -109,7 +109,7 @@ export default async function OlympiaQuestionBankPage({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Ngân hàng câu hỏi</h2>
-          <p className="text-sm text-muted-foreground">Quản lý bộ đề V4(1), xem nhanh nội dung và chuẩn bị cho từng trận.</p>
+          <p className="text-sm text-muted-foreground">Quản lý bộ đề V4, xem nhanh nội dung và chuẩn bị cho từng trận.</p>
         </div>
         <div className="flex gap-2">
           <UploadQuestionSetDialog />
