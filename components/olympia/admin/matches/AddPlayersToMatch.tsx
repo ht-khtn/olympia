@@ -74,11 +74,11 @@ export function AddPlayersToMatch({
     )
     const availableSeats = [1, 2, 3, 4].filter((seat) => !occupiedSeats.has(seat))
     const [assignments, setAssignments] = useState<Assignment[]>(
-        availableSeats.map(() => ({ participantId: '', seatIndex: '' })),
+        availableSeats.map((seat) => ({ participantId: '', seatIndex: String(seat) })),
     )
 
     const openDialog = () => {
-        setAssignments(availableSeats.map(() => ({ participantId: '', seatIndex: '' })))
+        setAssignments(availableSeats.map((seat) => ({ participantId: '', seatIndex: String(seat) })))
         setIsOpen(true)
     }
 
@@ -152,13 +152,31 @@ export function AddPlayersToMatch({
             </Button>
 
             <Dialog open={isOpen} onOpenChange={(open) => { if (open) openDialog(); else closeDialog() }}>
-                <DialogContent>
+                <DialogContent className="w-[calc(100%-2rem)] max-w-xl">
                     <DialogHeader>
                         <DialogTitle>Thêm thí sinh vào trận</DialogTitle>
-                        <DialogDescription>Chọn thí sinh và ghế cho tất cả các vị trí còn trống.</DialogDescription>
+                        <DialogDescription>
+                            Chọn thí sinh và xác nhận ghế cho các vị trí còn trống.
+                        </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4">
+                    <div className="space-y-2">
+                        {/* Header */}
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '32px minmax(0, 1fr) 105px',
+                                alignItems: 'center',
+                                columnGap: '8px',
+                            }}
+                            className="border-b pb-2 text-xs font-medium text-muted-foreground"
+                        >
+                            <span>#</span>
+                            <span>Thí sinh</span>
+                            <span>Ghế</span>
+                        </div>
+
+                        {/* Danh sách thí sinh */}
                         {assignments.map((assignment, index) => {
                             const selectedElsewhere = new Set(
                                 assignments
@@ -166,51 +184,88 @@ export function AddPlayersToMatch({
                                     .map((item) => item.participantId)
                                     .filter(Boolean),
                             )
+
                             const seatsSelectedElsewhere = new Set(
                                 assignments
                                     .filter((_, assignmentIndex) => assignmentIndex !== index)
                                     .map((item) => item.seatIndex)
                                     .filter(Boolean),
                             )
+
                             const participantOptions = unassignedParticipants.filter(
-                                (participant) => participant.user_id === assignment.participantId
-                                    || !selectedElsewhere.has(participant.user_id),
+                                (participant) =>
+                                    participant.user_id === assignment.participantId ||
+                                    !selectedElsewhere.has(participant.user_id),
                             )
+
                             const seatOptions = availableSeats.filter(
-                                (seat) => String(seat) === assignment.seatIndex
-                                    || !seatsSelectedElsewhere.has(String(seat)),
+                                (seat) =>
+                                    String(seat) === assignment.seatIndex ||
+                                    !seatsSelectedElsewhere.has(String(seat)),
                             )
 
                             return (
-                                <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Dòng {index + 1} · Thí sinh</label>
+                                <div
+                                    key={index}
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '32px minmax(0, 1fr) 105px',
+                                        alignItems: 'center',
+                                        columnGap: '8px',
+                                    }}
+                                >
+                                    {/* Số thứ tự */}
+                                    <span className="text-sm font-medium text-muted-foreground">
+                                        {index + 1}
+                                    </span>
+
+                                    {/* Chọn thí sinh */}
+                                    <div className="min-w-0">
                                         <Select
                                             value={assignment.participantId}
-                                            onValueChange={(value) => updateAssignment(index, { participantId: value })}
+                                            onValueChange={(value) =>
+                                                updateAssignment(index, { participantId: value })
+                                            }
                                             disabled={isLoading}
                                         >
-                                            <SelectTrigger><SelectValue placeholder="Chọn thí sinh..." /></SelectTrigger>
+                                            <SelectTrigger className="w-full min-w-0">
+                                                <SelectValue placeholder="Chọn thí sinh..." />
+                                            </SelectTrigger>
+
                                             <SelectContent>
                                                 {participantOptions.map((participant) => (
-                                                    <SelectItem key={participant.user_id} value={participant.user_id}>
+                                                    <SelectItem
+                                                        key={participant.user_id}
+                                                        value={participant.user_id}
+                                                    >
                                                         {participantLabel(participant)}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Ghế</label>
+
+                                    {/* Chọn ghế */}
+                                    <div className="w-[105px]">
                                         <Select
                                             value={assignment.seatIndex}
-                                            onValueChange={(value) => updateAssignment(index, { seatIndex: value })}
+                                            onValueChange={(value) =>
+                                                updateAssignment(index, { seatIndex: value })
+                                            }
                                             disabled={isLoading}
                                         >
-                                            <SelectTrigger className="sm:w-28"><SelectValue placeholder="Ghế..." /></SelectTrigger>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Ghế..." />
+                                            </SelectTrigger>
+
                                             <SelectContent>
                                                 {seatOptions.map((seat) => (
-                                                    <SelectItem key={seat} value={String(seat)}>Ghế {seat}</SelectItem>
+                                                    <SelectItem
+                                                        key={seat}
+                                                        value={String(seat)}
+                                                    >
+                                                        Ghế {seat}
+                                                    </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -218,17 +273,32 @@ export function AddPlayersToMatch({
                                 </div>
                             )
                         })}
-                        <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                            {assignments.map((assignment, index) => {
-                                const participant = unassignedParticipants.find((item) => item.user_id === assignment.participantId)
-                                return <div key={index}>Ghế {assignment.seatIndex || '—'}: {participant ? participantLabel(participant) : 'Chưa chọn thí sinh'}</div>
-                            })}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={closeDialog} disabled={isLoading}>Hủy</Button>
-                            <Button type="button" onClick={handleAddPlayers} disabled={!isValid || isLoading}>
-                                {isLoading ? 'Đang thêm…' : 'Thêm thí sinh'}
-                            </Button>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between gap-3 pt-3">
+                            <span className="text-sm text-muted-foreground">
+                                {assignments.filter((assignment) => assignment.participantId).length}
+                                /{assignments.length} thí sinh
+                            </span>
+
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={closeDialog}
+                                    disabled={isLoading}
+                                >
+                                    Hủy
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    onClick={handleAddPlayers}
+                                    disabled={!isValid || isLoading}
+                                >
+                                    {isLoading ? 'Đang thêm…' : 'Thêm thí sinh'}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </DialogContent>
