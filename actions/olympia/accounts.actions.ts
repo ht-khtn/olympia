@@ -2,12 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { User } from "@supabase/supabase-js";
 import { requireOlympiaAdminContext } from "@/lib/olympia/olympia-auth";
 import getOlympiaAdminClient from "@/lib/olympia/olympia-admin-client";
 
 export type AccountActionState = {
   error?: string | null;
   success?: string | null;
+  credentials?: {
+    email: string;
+    password: string;
+  } | null;
 };
 
 const contestantCodeSchema = z
@@ -24,6 +29,7 @@ const createAccountSchema = z
     isParticipant: z.boolean(),
     contestantCode: z.string().trim().optional(),
     isAdmin: z.boolean(),
+    password: z.string().optional(),
   })
   .superRefine((value, context) => {
     if (!value.isParticipant && !value.isAdmin) {
@@ -68,6 +74,12 @@ function isDuplicateError(error: unknown): boolean {
   return message.includes("duplicate") || message.includes("unique") || message.includes("already");
 }
 
+const OLYMPIA_EMAIL_DOMAIN = "@olympia.nvh.edu.vn";
+
+function isOlympiaInternalEmail(email: string): boolean {
+  return email.toLowerCase().endsWith(OLYMPIA_EMAIL_DOMAIN);
+}
+
 export async function createOlympiaAccountAction(
   _: AccountActionState,
   formData: FormData
@@ -80,6 +92,7 @@ export async function createOlympiaAccountAction(
     isParticipant: formBoolean(formData.get("isParticipant")),
     contestantCode: formData.get("contestantCode") ?? undefined,
     isAdmin: formBoolean(formData.get("isAdmin")),
+    password: formData.get("password") ?? undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
 
@@ -91,26 +104,47 @@ export async function createOlympiaAccountAction(
     contestantCode = code.data;
   }
 
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    payload.email,
-    { data: { display_name: payload.displayName } }
-  );
-  if (inviteError || !invited.user) {
+  const directCreate = payload.isParticipant && isOlympiaInternalEmail(payload.email);
+  let authResult: { data: { user: User | null }; error: unknown };
+  if (directCreate) {
+    const password = payload.password;
+    if (!password || password.length < 8) {
+      return { error: "Mật khẩu thí sinh phải có ít nhất 8 ký tự." };
+    }
+    authResult = await admin.auth.admin.createUser({
+      email: payload.email,
+      password,
+      email_confirm: true,
+      user_metadata: { display_name: payload.displayName },
+    });
+  } else {
+    authResult = await admin.auth.admin.inviteUserByEmail(
+      payload.email,
+      { data: { display_name: payload.displayName } }
+    );
+  }
+  if (authResult.error || !authResult.data.user) {
     return {
-      error: isDuplicateError(inviteError)
+      error: isDuplicateError(authResult.error)
         ? "Email đã tồn tại."
-        : errorMessage(inviteError, "Không thể gửi lời mời tài khoản."),
+        : errorMessage(
+            authResult.error,
+            directCreate ? "Không thể tạo tài khoản trực tiếp." : "Không thể gửi lời mời tài khoản."
+          ),
     };
   }
 
-  const userId = invited.user.id;
+  const userId = authResult.data.user.id;
   const olympia = admin.schema("olympia");
+  let profileCreated = false;
   let participantCreated = false;
+  let adminRoleCreated = false;
   try {
     const { error: profileError } = await olympia
       .from("profiles")
-      .upsert({ user_id: userId, display_name: payload.displayName });
+      .upsert({ id: userId, email: payload.email, display_name: payload.displayName });
     if (profileError) throw profileError;
+    profileCreated = true;
 
     if (payload.isParticipant) {
       const { error } = await olympia.from("participants").insert({
@@ -129,12 +163,24 @@ export async function createOlympiaAccountAction(
         granted_by: appUserId,
       });
       if (error) throw error;
+      adminRoleCreated = true;
     }
   } catch (error) {
     const originalError = isDuplicateError(error)
       ? "Contestant code hoặc quyền tài khoản đã tồn tại."
       : errorMessage(error, "Không thể hoàn tất dữ liệu tài khoản.");
     const cleanupErrors: string[] = [];
+
+    if (adminRoleCreated) {
+      const { error: roleCleanupError } = await olympia
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId)
+        .eq("role", "admin");
+      if (roleCleanupError) {
+        cleanupErrors.push(`Không thể cleanup quyền Admin: ${roleCleanupError.message}`);
+      }
+    }
 
     if (participantCreated) {
       const { error: participantCleanupError } = await olympia
@@ -145,6 +191,16 @@ export async function createOlympiaAccountAction(
         cleanupErrors.push(
           `Không thể cleanup participant: ${participantCleanupError.message}`
         );
+      }
+    }
+
+    if (profileCreated) {
+      const { error: profileCleanupError } = await olympia
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
+      if (profileCleanupError) {
+        cleanupErrors.push(`Không thể cleanup profile: ${profileCleanupError.message}`);
       }
     }
 
@@ -161,7 +217,12 @@ export async function createOlympiaAccountAction(
   }
 
   revalidatePath("/olympia/admin/accounts");
-  return { success: "Đã gửi lời mời tài khoản Olympia." };
+  return directCreate
+    ? {
+        success: "Đã tạo trực tiếp tài khoản thí sinh. Email đã được xác nhận.",
+        credentials: { email: payload.email, password: payload.password ?? "" },
+      }
+    : { success: "Đã gửi lời mời tài khoản Olympia." };
 }
 
 export async function updateOlympiaAccountAction(
@@ -214,7 +275,7 @@ export async function updateOlympiaAccountAction(
 
   const { error: profileError } = await olympia
     .from("profiles")
-    .upsert({ user_id: payload.userId, display_name: payload.displayName });
+    .upsert({ id: payload.userId, display_name: payload.displayName });
   if (profileError) return { error: profileError.message };
 
   if (payload.isParticipant) {
