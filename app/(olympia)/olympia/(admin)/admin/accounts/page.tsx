@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { CreateAccountDialog } from "@/components/olympia/admin/accounts/CreateAccountDialog";
 import { EditAccountDialog, type OlympiaAccount } from "@/components/olympia/admin/accounts/EditAccountDialog";
+import { ResetPasswordDialog } from "@/components/olympia/admin/accounts/ResetPasswordDialog";
+import { DeleteAccountDialog } from "@/components/olympia/admin/accounts/DeleteAccountDialog";
 import { cn } from "@/utils/cn";
 import { Input } from "@/components/ui/input";
 
@@ -61,7 +63,7 @@ function category(account: OlympiaAccount): FilterOption {
 }
 
 export default async function OlympiaAdminAccountsPage({ searchParams }: AccountsPageProps) {
-  await requireOlympiaAdminContext();
+  const { appUserId } = await requireOlympiaAdminContext();
   const admin = getOlympiaAdminClient();
   const users = await listAllAuthUsers();
   const userIds = users.map((user) => user.id);
@@ -209,7 +211,13 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
                   </TableCell>
                   <TableCell className="text-sm">{account.emailConfirmedAt ? dateFormatter.format(new Date(account.emailConfirmedAt)) : "Chưa xác nhận"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{dateFormatter.format(new Date(account.createdAt))}</TableCell>
-                  <TableCell><EditAccountDialog account={account} /></TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <EditAccountDialog account={account} />
+                      <ResetPasswordDialog account={account} />
+                      <DeleteAccountDialog account={account} disabled={account.userId === appUserId} />
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

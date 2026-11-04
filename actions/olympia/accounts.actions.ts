@@ -15,6 +15,12 @@ export type AccountActionState = {
   } | null;
 };
 
+export type AccountDeleteState = {
+  error?: string | null;
+  success?: string | null;
+  deactivated?: boolean;
+};
+
 const contestantCodeSchema = z
   .string()
   .trim()
@@ -78,6 +84,190 @@ const OLYMPIA_EMAIL_DOMAIN = "@olympia.nvh.edu.vn";
 
 function isOlympiaInternalEmail(email: string): boolean {
   return email.toLowerCase().endsWith(OLYMPIA_EMAIL_DOMAIN);
+}
+
+const passwordSchema = z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự.").max(128);
+const userIdSchema = z.string().uuid("User ID không hợp lệ.");
+
+async function countRows(
+  table: string,
+  column: string,
+  userId: string,
+  olympia: ReturnType<ReturnType<typeof getOlympiaAdminClient>["schema"]>
+): Promise<number> {
+  const { count, error } = await olympia.from(table).select(column, { count: "exact", head: true }).eq(column, userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function resetOlympiaAccountPasswordAction(
+  _: AccountActionState,
+  formData: FormData
+): Promise<AccountActionState> {
+  await requireOlympiaAdminContext();
+  const userId = userIdSchema.safeParse(formData.get("userId"));
+  const password = passwordSchema.safeParse(formData.get("password"));
+  if (!userId.success) return { error: userId.error.issues[0]?.message ?? "User ID không hợp lệ." };
+  if (!password.success) return { error: password.error.issues[0]?.message ?? "Mật khẩu không hợp lệ." };
+
+  const admin = getOlympiaAdminClient();
+  const { data: authUser, error: authUserError } = await admin.auth.admin.getUserById(userId.data);
+  if (authUserError || !authUser.user) return { error: "Tài khoản Auth không tồn tại." };
+  const { error } = await admin.auth.admin.updateUserById(userId.data, { password: password.data });
+  if (error) return { error: errorMessage(error, "Không thể đặt lại mật khẩu.") };
+
+  revalidatePath("/olympia/admin/accounts");
+  return {
+    success: "Đã đặt lại mật khẩu. Phiên đăng nhập cũ chưa được xác nhận là đã bị thu hồi.",
+    credentials: { email: authUser.user.email ?? "", password: password.data },
+  };
+}
+
+export async function deleteOlympiaAccountAction(
+  _: AccountDeleteState,
+  formData: FormData
+): Promise<AccountDeleteState> {
+  const { appUserId } = await requireOlympiaAdminContext();
+  const parsedUserId = userIdSchema.safeParse(formData.get("userId"));
+  if (!parsedUserId.success) return { error: parsedUserId.error.issues[0]?.message ?? "User ID không hợp lệ." };
+  if (formData.get("confirm") !== "true") return { error: "Cần xác nhận trước khi xóa tài khoản." };
+  const userId = parsedUserId.data;
+  if (userId === appUserId) return { error: "Không thể xóa tài khoản Admin đang đăng nhập." };
+
+  const admin = getOlympiaAdminClient();
+  const olympia = admin.schema("olympia");
+  const { data: role, error: roleError } = await olympia
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (roleError) return { error: roleError.message };
+
+  if (role) {
+    const { count, error } = await olympia
+      .from("user_roles")
+      .select("user_id", { count: "exact", head: true })
+      .eq("role", "admin");
+    if (error) return { error: error.message };
+    if ((count ?? 0) <= 1) return { error: "Không thể xóa Admin cuối cùng." };
+  }
+
+  try {
+    const participantCount = await countRows("participants", "user_id", userId, olympia);
+    const matchPlayerCount = participantCount
+      ? await countRows("match_players", "participant_id", userId, olympia)
+      : 0;
+    if (matchPlayerCount > 0) {
+      const { error } = await olympia
+        .from("participants")
+        .update({ is_active: false })
+        .eq("user_id", userId);
+      if (error) return { error: `Không thể ngừng hoạt động tài khoản: ${error.message}` };
+      revalidatePath("/olympia/admin/accounts");
+      return {
+        success: "Tài khoản đã có lịch sử thi đấu nên được chuyển sang ngừng hoạt động, không xóa dữ liệu.",
+        deactivated: true,
+      };
+    }
+
+    const profileReferences = await Promise.all([
+      countRows("tournaments", "created_by", userId, olympia),
+      countRows("matches", "host_user_id", userId, olympia),
+      countRows("question_sets", "uploaded_by", userId, olympia),
+      countRows("question_set_items", "created_by", userId, olympia),
+      countRows("live_sessions", "password_generated_by", userId, olympia),
+      countRows("live_sessions", "created_by", userId, olympia),
+      countRows("session_access_grants", "user_id", userId, olympia),
+      countRows("score_changes", "created_by", userId, olympia),
+      countRows("score_changes", "reverted_by", userId, olympia),
+      countRows("user_roles", "granted_by", userId, olympia),
+    ]);
+    if (profileReferences.some((count) => count > 0)) {
+      if (participantCount > 0) {
+        const { error } = await olympia
+          .from("participants")
+          .update({ is_active: false })
+          .eq("user_id", userId);
+        if (error) return { error: `Không thể ngừng hoạt động tài khoản: ${error.message}` };
+        revalidatePath("/olympia/admin/accounts");
+        return {
+          success: "Tài khoản có dữ liệu liên quan cần bảo tồn nên được chuyển sang ngừng hoạt động.",
+          deactivated: true,
+        };
+      }
+      return { error: "Tài khoản có dữ liệu liên quan cần bảo tồn nên không thể xóa vật lý." };
+    }
+
+    const { data: profile, error: profileReadError } = await olympia
+      .from("profiles")
+      .select("id, email, display_name, avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileReadError) return { error: `Không thể chuẩn bị xóa profile: ${profileReadError.message}` };
+    const { data: participant, error: participantReadError } = await olympia
+      .from("participants")
+      .select("user_id, contestant_code, is_active")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (participantReadError) return { error: `Không thể chuẩn bị xóa participant: ${participantReadError.message}` };
+    const { data: roles, error: rolesReadError } = await olympia
+      .from("user_roles")
+      .select("user_id, role, granted_by")
+      .eq("user_id", userId);
+    if (rolesReadError) return { error: `Không thể chuẩn bị xóa quyền: ${rolesReadError.message}` };
+
+    const { error: participantDeleteError } = await olympia.from("participants").delete().eq("user_id", userId);
+    if (participantDeleteError) return { error: `Không thể xóa participant: ${participantDeleteError.message}` };
+    const { error: roleDeleteError } = await olympia.from("user_roles").delete().eq("user_id", userId);
+    if (roleDeleteError) {
+      const { error: restoreError } = participant
+        ? await olympia.from("participants").upsert(participant)
+        : { error: null };
+      const restoreMessage = restoreError ? ` Khôi phục participant thất bại: ${restoreError.message}` : " Participant đã được khôi phục.";
+      return { error: `Không thể xóa quyền tài khoản: ${roleDeleteError.message}.${restoreMessage}` };
+    }
+    const { error: profileDeleteError } = await olympia.from("profiles").delete().eq("id", userId);
+    if (profileDeleteError) {
+      const [participantRestore, rolesRestore] = await Promise.all([
+        participant ? olympia.from("participants").upsert(participant) : Promise.resolve({ error: null }),
+        roles.length > 0 ? olympia.from("user_roles").upsert(roles) : Promise.resolve({ error: null }),
+      ]);
+      const restoreErrors: string[] = [];
+      if (participantRestore.error) restoreErrors.push(`participant: ${participantRestore.error.message}`);
+      if (rolesRestore.error) restoreErrors.push(`quyền: ${rolesRestore.error.message}`);
+      const restoreMessage = restoreErrors.length > 0
+        ? ` Khôi phục thất bại: ${restoreErrors.join("; ")}`
+        : " Dữ liệu liên quan đã được khôi phục.";
+      return { error: `Không thể xóa profile; Auth user chưa bị xóa: ${profileDeleteError.message}.${restoreMessage}` };
+    }
+
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(userId);
+    if (authDeleteError) {
+      const restoreErrors: string[] = [];
+      if (profile) {
+        const { error } = await olympia.from("profiles").upsert(profile);
+        if (error) restoreErrors.push(`profile: ${error.message}`);
+      }
+      if (participant) {
+        const { error } = await olympia.from("participants").upsert(participant);
+        if (error) restoreErrors.push(`participant: ${error.message}`);
+      }
+      if (roles.length > 0) {
+        const { error } = await olympia.from("user_roles").upsert(roles);
+        if (error) restoreErrors.push(`quyền: ${error.message}`);
+      }
+      const restoreMessage = restoreErrors.length > 0
+        ? ` Khôi phục dữ liệu thất bại: ${restoreErrors.join("; ")}`
+        : " Dữ liệu Olympia đã được khôi phục.";
+      return { error: `Không thể xóa Auth user: ${authDeleteError.message}.${restoreMessage}` };
+    }
+  } catch (error) {
+    return { error: errorMessage(error, "Không thể kiểm tra hoặc xóa tài khoản.") };
+  }
+
+  revalidatePath("/olympia/admin/accounts");
+  return { success: "Đã xóa vĩnh viễn tài khoản." };
 }
 
 export async function createOlympiaAccountAction(

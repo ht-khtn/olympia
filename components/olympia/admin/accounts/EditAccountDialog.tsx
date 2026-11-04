@@ -60,7 +60,7 @@ function EditAccountForm({ account, onDone }: { account: OlympiaAccount; onDone:
       <div className="space-y-2"><Label htmlFor="displayName">Tên hiển thị</Label><Input id="displayName" name="displayName" defaultValue={account.displayName} required disabled={pending} /></div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isAdmin" value="true" defaultChecked={account.isAdmin} disabled={pending} /> Admin</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isParticipant" value="true" defaultChecked={account.isParticipant} disabled={pending} /> Thí sinh</label>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isParticipantActive" value="true" defaultChecked={account.isParticipantActive} disabled={pending} /> Participant đang hoạt động</label>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isParticipantActive" value="true" defaultChecked={account.isParticipantActive} disabled={pending} /> {account.isParticipantActive ? "Ngừng hoạt động nếu bỏ chọn" : "Kích hoạt thí sinh"}</label>
       <div className="space-y-2"><Label htmlFor="contestantCode">Mã thí sinh</Label><Input id="contestantCode" name="contestantCode" defaultValue={account.contestantCode ?? ""} disabled={pending} /></div>
       <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={onDone} disabled={pending}>Hủy</Button><Button type="submit" disabled={pending}>{pending ? "Đang cập nhật…" : "Cập nhật"}</Button></div>
     </form>
