@@ -1,12 +1,11 @@
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
+import { notFound, redirect } from 'next/navigation'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { PlayerPasswordGate } from '@/components/olympia/client/game/PlayerPasswordGate'
 import { PlayerStage } from '@/components/olympia/client/game/PlayerStage'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
 import { getServerAuthContext } from '@/lib/server-auth'
+import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 import type { GameSessionPayload, RoundQuestionRow } from '@/types/olympia/game'
 import { hasOlympiaGrant } from '@/lib/olympia/session-grants'
 
@@ -21,8 +20,8 @@ type PageProps = {
 
 async function getGameSessionData(
     supabase: SupabaseClient,
-    sessionId: string,
-    viewerUserId: string | null
+    joinCode: string,
+    appUserId: string
 ): Promise<GameSessionPayload | null> {
     const olympia = supabase.schema('olympia')
     const selectWithGuestMediaControl =
@@ -33,7 +32,7 @@ async function getGameSessionData(
     const firstAttempt = await olympia
         .from('live_sessions')
         .select(selectWithGuestMediaControl)
-        .eq('join_code', sessionId)
+        .eq('join_code', joinCode)
         .maybeSingle()
 
     const shouldRetryWithoutGuestMediaControl =
@@ -41,7 +40,7 @@ async function getGameSessionData(
         firstAttempt.error.message.toLowerCase().includes('guest_media_control')
 
     const { data: session, error: sessionError } = shouldRetryWithoutGuestMediaControl
-        ? await olympia.from('live_sessions').select(selectWithoutGuestMediaControl).eq('join_code', sessionId).maybeSingle()
+        ? await olympia.from('live_sessions').select(selectWithoutGuestMediaControl).eq('join_code', joinCode).maybeSingle()
         : firstAttempt
 
     if (sessionError) {
@@ -50,16 +49,16 @@ async function getGameSessionData(
     }
 
     if (!session) {
-        console.error(`[Olympia] Session not found: ${sessionId}`)
+        console.error(`[Olympia] Session not found: ${joinCode}`)
         return null
     }
 
     if (!session.match_id) {
-        console.error(`[Olympia] Session has no match_id: ${sessionId}`)
+        console.error(`[Olympia] Session has no match_id: ${joinCode}`)
         return null
     }
 
-    const [{ data: match, error: matchError }, { data: players, error: playersError }] = await Promise.all([
+    const [{ data: match, error: matchError }, { data: membership, error: membershipError }] = await Promise.all([
         olympia
             .from('matches')
             .select('id, name, status, scheduled_at')
@@ -67,9 +66,10 @@ async function getGameSessionData(
             .maybeSingle(),
         olympia
             .from('match_players')
-            .select('id, match_id, participant_id, seat_index, display_name, is_disqualified_obstacle')
+            .select('id')
             .eq('match_id', session.match_id)
-            .order('seat_index', { ascending: true }),
+            .eq('participant_id', appUserId)
+            .maybeSingle(),
     ])
 
     if (matchError) {
@@ -82,18 +82,25 @@ async function getGameSessionData(
         return null
     }
 
-    if (playersError) {
-        console.warn('[Olympia] load players failed', playersError.message)
+    if (membershipError || !membership) {
+        if (membershipError) {
+            console.error('[Olympia] load player membership failed', membershipError.message)
+        }
+        return null
     }
 
     const canReadAnswer =
-        viewerUserId !== null &&
-        (await hasOlympiaGrant({ sessionId: session.id, scope: 'player', userId: viewerUserId })) &&
+        (await hasOlympiaGrant({ sessionId: session.id, scope: 'player', userId: appUserId })) &&
         (session.question_state === 'answer_revealed' || session.question_state === 'completed')
-    const roundQuestionSelect = canReadAnswer
-        ? 'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, answer_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
-        : 'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
-    const [{ data: scores }, { data: rawRoundQuestions }, { data: buzzerEvents }, { data: starUses }] = await Promise.all([
+    const roundQuestionSelect =
+        'id, match_round_id, question_set_item_id, order_index, target_player_id, meta, question_text, note, image_path, audio_path, image_external_url, audio_external_url, media_path, letter_count, match_rounds!inner(match_id, round_type)'
+    const [
+        { data: scores },
+        { data: rawRoundQuestions },
+        { data: buzzerEvents },
+        { data: starUses },
+        { data: currentAnswer },
+    ] = await Promise.all([
         olympia
             .from('match_scores')
             .select('id, match_id, player_id, round_type, points')
@@ -117,7 +124,24 @@ async function getGameSessionData(
             .from('star_uses')
             .select('id, match_id, round_question_id, player_id, outcome, declared_at')
             .eq('match_id', session.match_id),
+        canReadAnswer && session.current_round_question_id
+            ? olympia
+                .from('round_questions')
+                .select('id, answer_text')
+                .eq('id', session.current_round_question_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
     ])
+
+    const { data: players, error: playersError } = await olympia
+        .from('match_players')
+        .select('id, match_id, participant_id, seat_index, display_name, is_disqualified_obstacle')
+        .eq('match_id', session.match_id)
+        .order('seat_index', { ascending: true })
+
+    if (playersError) {
+        console.warn('[Olympia] load players failed', playersError.message)
+    }
 
     const participantIds = (players ?? [])
         .map((p) => (p as { participant_id?: string | null }).participant_id ?? null)
@@ -130,7 +154,11 @@ async function getGameSessionData(
         return { ...p, display_name: row.display_name ?? resolved }
     })
 
-    const roundQuestions = rawRoundQuestions as unknown as RoundQuestionRow[] | null
+    const roundQuestions = (rawRoundQuestions ?? []).map((question) =>
+        question.id === session.current_round_question_id
+            ? { ...question, answer_text: currentAnswer?.answer_text ?? null }
+            : question
+    ) as RoundQuestionRow[]
 
     return {
         session,
@@ -149,61 +177,41 @@ async function getGameSessionData(
 }
 
 export default async function OlympiaGamePage({ params }: PageProps) {
-    const { supabase, authUid, appUserId } = await getServerAuthContext()
+    const { authUid, appUserId } = await getServerAuthContext()
     const { joinCode } = await params
     if (!joinCode) {
         notFound()
     }
 
-    const data = await getGameSessionData(supabase, joinCode, authUid)
+    if (!authUid) {
+        redirect(`/login?redirect=${encodeURIComponent(`/olympia/client/game/${joinCode}`)}`)
+    }
+
+    if (!appUserId) {
+        return (
+            <section className="mx-auto max-w-2xl px-4 py-8 space-y-4">
+                <Alert>
+                    <AlertTitle>Tài khoản chưa sẵn sàng</AlertTitle>
+                    <AlertDescription>Tài khoản Olympia của bạn chưa có hồ sơ thí sinh hợp lệ.</AlertDescription>
+                </Alert>
+            </section>
+        )
+    }
+
+    const supabase = getOlympiaAdminClient()
+    const data = await getGameSessionData(supabase, joinCode, appUserId)
     if (!data) {
         notFound()
     }
 
-    // Chặn: chỉ thí sinh thuộc match_players mới được vào mode player.
-    // Nếu user đã đăng nhập nhưng chưa có appUserId (chưa kích hoạt trong hệ thống) => cũng chặn.
-    if (authUid) {
-        const isMember =
-            appUserId != null &&
-            (data.players ?? []).some((p) => {
-                const pid = (p as { participant_id?: string | null }).participant_id ?? null
-                return pid === appUserId
-            })
+    const userAlreadyVerified = await hasOlympiaGrant({ sessionId: data.session.id, scope: 'player', userId: appUserId })
 
-        if (!isMember) {
-            return (
-                <section className="mx-auto max-w-2xl px-4 py-8 space-y-4">
-                    <Alert>
-                        <AlertTitle>Bạn không thuộc phòng thi này</AlertTitle>
-                        <AlertDescription>
-                            Tài khoản hiện tại không có trong danh sách thí sinh của trận. Bạn có thể xem ở chế độ khách hoặc quay lại trang tham gia.
-                        </AlertDescription>
-                    </Alert>
-
-                    <div className="flex flex-wrap gap-2">
-                        <Button asChild variant="outline">
-                            <Link href="/olympia/client/join">Về trang tham gia</Link>
-                        </Button>
-                        <Button asChild>
-                            <Link href={`/olympia/client/guest/${encodeURIComponent(joinCode)}`}>Xem chế độ khách</Link>
-                        </Button>
-                    </div>
-                </section>
-            )
-        }
-    }
-
-    const userAlreadyVerified = authUid
-        ? await hasOlympiaGrant({ sessionId: data.session.id, scope: 'player', userId: authUid })
-        : false
-
-    const viewerId = appUserId ?? null
     // UI game tự xử lý trạng thái phòng (running/pending/ended)
 
     return (
         <PlayerPasswordGate session={data.session} userAlreadyVerified={userAlreadyVerified}>
             <PlayerStage
-                initialData={{ ...data, viewerUserId: viewerId }}
+                initialData={{ ...data, viewerUserId: appUserId }}
                 sessionId={data.session.id}
             />
         </PlayerPasswordGate>

@@ -15,6 +15,7 @@ import {
   traceInfo,
 } from "@/lib/olympia/olympia-trace";
 import { requireOlympiaAdminContext } from "@/lib/olympia/olympia-auth";
+import { hasOlympiaGrant } from "@/lib/olympia/session-grants";
 import type { ActionState } from "./match.actions";
 
 const advanceQuestionSchema = z.object({
@@ -943,6 +944,15 @@ export async function submitAnswerAction(_: ActionState, formData: FormData): Pr
 
     if (error) return { error: error.message };
     if (!session) return { error: "Không tìm thấy phòng thi." };
+    if (
+      !(await hasOlympiaGrant({
+        sessionId: session.id,
+        scope: "player",
+        userId: appUserId,
+      }))
+    ) {
+      return { error: "Bạn chưa được xác thực quyền thí sinh." };
+    }
     if (session.status !== "running") {
       return { error: "Phòng chưa mở nhận đáp án." };
     }
@@ -1185,6 +1195,15 @@ export async function triggerBuzzerAction(
 
     if (error) return { error: error.message };
     if (!session) return { error: "Không tìm thấy phòng thi." };
+    if (
+      !(await hasOlympiaGrant({
+        sessionId: session.id,
+        scope: "player",
+        userId: appUserId,
+      }))
+    ) {
+      return { error: "Bạn chưa được xác thực quyền thí sinh." };
+    }
     if (session.status !== "running") {
       return { error: "Phòng chưa sẵn sàng nhận tín hiệu buzzer." };
     }

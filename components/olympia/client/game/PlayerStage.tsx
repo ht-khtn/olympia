@@ -71,16 +71,16 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
     : null
   const currentBuzzer = currentQuestionId
     ? buzzerEvents.find(
-        (event) =>
-          event.round_question_id === currentQuestionId &&
-          event.player_id === player?.id &&
-          event.result === 'win'
-      )
+      (event) =>
+        event.round_question_id === currentQuestionId &&
+        event.player_id === player?.id &&
+        event.result === 'win'
+    )
     : null
   const currentWinner = currentQuestionId
     ? buzzerEvents.find(
-        (event) => event.round_question_id === currentQuestionId && event.result === 'win'
-      )
+      (event) => event.round_question_id === currentQuestionId && event.result === 'win'
+    )
     : null
   const isStealWindow = roundType === 've_dich' && questionState === 'answer_revealed'
   const isWaitingScreen = questionState === 'hidden'
@@ -160,12 +160,12 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
         <section className="player-card player-waiting">
           <p className="player-kicker">TRẠNG THÁI PHÒNG</p>
           <h2>{session.status === 'ended' ? 'Trận đấu đã kết thúc' : 'Đang chờ trận đấu bắt đầu'}</h2>
-          <p>Hãy giữ màn hình mở. MC sẽ bắt đầu trận khi tất cả đã sẵn sàng.</p>
+          <p>Hãy giữ màn hình mở. Trận đấu sẽ bắt đầu khi tất cả đã sẵn sàng.</p>
         </section>
       ) : !currentQuestion ? (
         <section className="player-card player-waiting">
           <p className="player-kicker">SẴN SÀNG</p>
-          <h2>Chờ MC chọn câu hỏi</h2>
+          <h2>Đang chờ câu hỏi</h2>
           <p>Bạn sẽ nhận được câu hỏi và đồng hồ ngay khi lượt thi bắt đầu.</p>
         </section>
       ) : (
@@ -180,7 +180,7 @@ export function PlayerStage({ initialData, sessionId }: PlayerStageProps) {
               : currentQuestion.question_text ?? 'Đang chờ nội dung câu hỏi'}
           </h2>
           {questionState !== 'hidden' &&
-          (currentQuestion.image_external_url || currentQuestion.image_path) ? (
+            (currentQuestion.image_external_url || currentQuestion.image_path) ? (
             <img
               className="player-question-media"
               src={currentQuestion.image_external_url ?? currentQuestion.image_path ?? ''}
