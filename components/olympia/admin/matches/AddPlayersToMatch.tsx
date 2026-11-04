@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,11 +66,6 @@ export function AddPlayersToMatch({
     const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
-    const [hasHydrated, setHasHydrated] = useState(false)
-
-    useEffect(() => {
-        setHasHydrated(true)
-    }, [])
 
     const assignedParticipantIds = new Set(currentPlayers.map((player) => player.participant_id))
     const occupiedSeats = new Set(currentPlayers.map((player) => player.seat_index))
@@ -140,14 +135,6 @@ export function AddPlayersToMatch({
         } finally {
             setIsLoading(false)
         }
-    }
-
-    if (!hasHydrated) {
-        return (
-            <Button disabled size="sm">
-                Đang tải…
-            </Button>
-        )
     }
 
     if (unassignedParticipants.length === 0 || availableSeats.length === 0) {
