@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getServerSupabase } from "@/lib/server-auth";
+import { getOlympiaAdminClient } from "@/lib/olympia/olympia-admin-client";
 import { verifyRoomPassword } from "@/lib/olympia/session-credentials";
 import { issueOlympiaGrant } from "@/lib/olympia/session-grants";
 import {
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       return NextResponse.json(body, { status: 400 });
     }
 
-    const supabase = await getServerSupabase();
+    const supabase = getOlympiaAdminClient();
     const olympia = supabase.schema("olympia");
 
     const { data: session, error } = await olympia

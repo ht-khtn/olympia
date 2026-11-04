@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +19,7 @@ type McPasswordGateProps = {
 }
 
 export function McPasswordGate({ joinCode, children, mode = 'inline' }: McPasswordGateProps) {
+  const router = useRouter()
   const [unlocked, setUnlocked] = useState(false)
   const [loading, setLoading] = useState(false)
   const [mcPassword, setMcPassword] = useState('')
@@ -70,6 +72,7 @@ export function McPasswordGate({ joinCode, children, mode = 'inline' }: McPasswo
               if ('ok' in parsed && parsed.ok) {
                 setState({ error: null, success: parsed.message })
                 setUnlocked(true)
+                router.refresh()
                 return
               }
 

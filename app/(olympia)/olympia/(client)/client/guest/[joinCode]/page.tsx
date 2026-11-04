@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ViewerStage } from '@/components/olympia/client/viewer/ViewerStage'
 import { resolveDisplayNamesForUserIds } from '@/lib/olympia-display-names'
-import { getServerSupabase } from '@/lib/server-auth'
+import getOlympiaAdminClient from '@/lib/olympia/olympia-admin-client'
 import type { GameSessionPayload } from '@/types/olympia/game'
 
 // KEEP force-dynamic: Real-time match state
@@ -124,7 +124,7 @@ async function getGuestSessionData(
 }
 
 export default async function OlympiaGuestPage({ params }: GuestPageProps) {
-    const supabase = await getServerSupabase()
+    const supabase = getOlympiaAdminClient()
     const resolvedParams = await params
     const joinCode = (resolvedParams.joinCode ?? '').trim().toUpperCase()
     const { payload, matchName } = await getGuestSessionData(supabase, joinCode)

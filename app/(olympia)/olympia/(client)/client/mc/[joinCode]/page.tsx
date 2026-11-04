@@ -17,14 +17,19 @@ type PageProps = {
     }>
 }
 
-async function getMcSessionData(supabase: SupabaseClient, joinCode: string): Promise<GameSessionPayload | null> {
+type McSessionSummary = {
+    id: string
+    match_id: string | null
+    join_code: string | null
+    status: string
+}
+
+async function getMcSession(supabase: SupabaseClient, joinCode: string): Promise<McSessionSummary | null> {
     const olympia = supabase.schema('olympia')
 
     const { data: session, error: sessionError } = await olympia
         .from('live_sessions')
-        .select(
-            'id, match_id, status, join_code, question_state, current_round_id, current_round_type, current_round_question_id, timer_deadline, requires_player_password, buzzer_enabled, show_scoreboard_overlay, show_answers_overlay, guest_media_control'
-        )
+        .select('id, match_id, join_code, status')
         .eq('join_code', joinCode)
         .maybeSingle()
 
@@ -33,8 +38,30 @@ async function getMcSessionData(supabase: SupabaseClient, joinCode: string): Pro
         return null
     }
 
+    return session
+}
+
+async function getMcSessionData(supabase: SupabaseClient, sessionSummary: McSessionSummary): Promise<GameSessionPayload | null> {
+    const olympia = supabase.schema('olympia')
+
+    if (!sessionSummary.match_id) return null
+
+    if (!(await hasOlympiaGrant({ sessionId: sessionSummary.id, scope: 'mc' }))) return null
+
+    const { data: session, error: sessionError } = await olympia
+        .from('live_sessions')
+        .select(
+            'id, match_id, status, join_code, question_state, current_round_id, current_round_type, current_round_question_id, timer_deadline, requires_player_password, buzzer_enabled, show_scoreboard_overlay, show_answers_overlay, guest_media_control'
+        )
+        .eq('id', sessionSummary.id)
+        .maybeSingle()
+
+    if (sessionError) {
+        console.error('[Olympia][MC] load live session details failed', sessionError.message)
+        return null
+    }
+
     if (!session?.match_id) return null
-    if (!(await hasOlympiaGrant({ sessionId: session.id, scope: 'mc' }))) return null
 
     const [{ data: match, error: matchError }, { data: players, error: playersError }] = await Promise.all([
         olympia.from('matches').select('id, name, status, scheduled_at').eq('id', session.match_id).maybeSingle(),
@@ -128,7 +155,14 @@ export default async function OlympiaClientMcPage({ params }: PageProps) {
     const joinCode = (resolvedParams.joinCode ?? '').trim().toUpperCase()
     if (!joinCode) notFound()
 
-    const data = await getMcSessionData(supabase, joinCode)
+    const session = await getMcSession(supabase, joinCode)
+    if (!session) notFound()
+
+    if (!(await hasOlympiaGrant({ sessionId: session.id, scope: 'mc' }))) {
+        return <McPasswordGate joinCode={session.join_code ?? joinCode} mode="page" />
+    }
+
+    const data = await getMcSessionData(supabase, session)
     if (!data) notFound()
 
     const sessionStatus = data.session.status
