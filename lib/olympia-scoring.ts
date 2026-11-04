@@ -21,7 +21,7 @@ export function computeKhoiDongCommonScore(
 ): { delta: number; nextPoints: number } {
   const config = getKhoiDongPoints();
   const rawDelta =
-    decision === "correct" ? config.commonPointsCorrect : -config.commonPointsIncorrect;
+    decision === "correct" ? config.commonPointsCorrect : config.commonPointsIncorrect;
   const nextPoints = Math.max(0, currentPoints + rawDelta);
   return { delta: rawDelta, nextPoints };
 }
@@ -46,7 +46,7 @@ export function computeVeDichStealDelta(params: {
   const safeValue = params.value === 30 ? 30 : 20;
   if (params.decision === "correct") return safeValue;
   const config = getVeDichPoints();
-  const penaltyAmount = Math.ceil((safeValue * config.stealPenaltyPercentage) / 100);
+  const penaltyAmount = Math.ceil(safeValue * config.stealPenaltyPercentage);
   return -penaltyAmount;
 }
 
