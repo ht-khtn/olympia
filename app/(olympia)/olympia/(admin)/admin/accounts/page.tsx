@@ -28,7 +28,7 @@ const filterOptions = [
 
 type FilterOption = (typeof filterOptions)[number]["id"];
 
-type ProfileRow = { user_id: string; display_name: string | null };
+type ProfileRow = { id: string; display_name: string | null };
 type RoleRow = { user_id: string; role: string };
 type ParticipantRow = {
   user_id: string;
@@ -70,7 +70,7 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
   const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, { data: participants, error: participantsError }] =
     await Promise.all([
       userIds.length
-        ? olympia.from("profiles").select("user_id, display_name").in("user_id", userIds)
+        ? olympia.from("profiles").select("id, display_name").in("id", userIds)
         : Promise.resolve({ data: [], error: null }),
       userIds.length
         ? olympia.from("user_roles").select("user_id, role").in("user_id", userIds)
@@ -86,7 +86,7 @@ export default async function OlympiaAdminAccountsPage({ searchParams }: Account
   const queryError = profilesError ?? rolesError ?? participantsError;
   if (queryError) throw new Error(queryError.message);
 
-  const profileMap = new Map((profiles as ProfileRow[]).map((row) => [row.user_id, row]));
+  const profileMap = new Map((profiles as ProfileRow[]).map((row) => [row.id, row]));
   const adminIds = new Set(
     (roles as RoleRow[]).filter((row) => row.role === "admin").map((row) => row.user_id)
   );
