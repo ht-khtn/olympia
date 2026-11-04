@@ -342,11 +342,11 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
 
   // Fetch VCNV reveal state khi vào vòng VCNV (ngay cả lúc thoát ra rồi vào lại)
   useEffect(() => {
+    if (viewerMode === "guest") return;
     if (roundType !== "vcnv") return;
     if (!session.current_round_id) return;
 
     const fetchVcnvOnRoundChange = async () => {
-      if (viewerMode === "guest") return;
       const supabase = supabaseRef.current;
       if (!supabase) return;
 
@@ -395,7 +395,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
     };
 
     void fetchVcnvOnRoundChange();
-  }, [roundType, session.current_round_id, fetchVcnvRevealSnapshot]);
+  }, [fetchVcnvRevealSnapshot, roundType, session.current_round_id, viewerMode]);
 
   const fetchAnswersForQuestion = useCallback(async (roundQuestionId: string) => {
     try {
@@ -660,8 +660,12 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
 
   const refreshFromServer = useCallback(() => {
     setStatusMessage("Đang đồng bộ dữ liệu mới…");
+    if (viewerMode === "guest") {
+      void fetchGuestSnapshot();
+      return;
+    }
     void fetchSnapshotOnce();
-  }, [fetchSnapshotOnce]);
+  }, [fetchGuestSnapshot, fetchSnapshotOnce, viewerMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -677,6 +681,7 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
   }, [session.timer_deadline]);
 
   useEffect(() => {
+    if (viewerMode === "guest") return;
     let mounted = true;
 
     const clearRetryTimer = () => {
@@ -980,7 +985,6 @@ export function useOlympiaGameState({ sessionId, initialData, viewerMode }: UseO
       }
     };
 
-    if (viewerMode === "guest") return;
     subscribe();
 
     return () => {
