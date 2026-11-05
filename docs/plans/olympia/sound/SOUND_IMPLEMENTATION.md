@@ -291,9 +291,9 @@ export { SOUND_PRELOAD_CONFIG, SOUND_TIMING, SOUND_GROUPS } from "./constants"
 
 **Exports:**
 ```typescript
-function buildSoundUrl(fileName: string): string
+async function buildSoundUrl(fileName: string): Promise<string>
 function getSoundFileName(soundKey: string): string | null
-function getSoundUrl(soundKey: string): string | null
+async function getSoundUrl(soundKey: string): Promise<string | null>
 
 // Validation
 function isValidSoundFileName(fileName: string): boolean
@@ -320,6 +320,34 @@ export const SUPABASE_SOUND_CONFIG = {
   FOLDER: "audio"
 }
 ```
+
+### URL âm thanh
+
+Audio được lưu trong bucket Public `olympia-media`, theo quy ước:
+
+```text
+olympia-media/audio/{fileName}.mp3
+```
+
+Helper dùng chung là `lib/olympia/olympia-media.ts`:
+
+```typescript
+export async function getOlympiaMediaUrl(
+  folder: "audio" | "theme" | "video",
+  fileName: string
+): Promise<string> {
+  const supabase = await getSupabase();
+  const objectPath = `${folder}/${fileName}`;
+  const { data } = supabase.storage
+    .from("olympia-media")
+    .getPublicUrl(objectPath);
+  return data.publicUrl;
+}
+```
+
+`SoundRegistry.getUrl(soundKey)` trả về `Promise<string | null>`.
+`SoundCacheManager` await URL này trước khi fetch và decode audio; không fetch
+URL trước khi Promise hoàn tất.
 
 ---
 

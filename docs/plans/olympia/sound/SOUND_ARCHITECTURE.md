@@ -404,9 +404,9 @@ olympia-media/audio/{fileName}.mp3
 ### 4.2 Helper Function
 
 ```typescript
-// Location: lib/olympia/olympia-sound-url.ts
+// Location: lib/olympia/olympia-media.ts
 
-function buildSoundUrl(fileName: string): string {
+async function buildSoundUrl(fileName: string): Promise<string> {
   return getOlympiaMediaUrl("audio", `${fileName}.mp3`);
 }
 
@@ -417,15 +417,21 @@ function getSoundFileName(soundKey: string): string | null {
 }
 
 // Lấy full URL từ soundKey
-function getSoundUrl(soundKey: string): string | null {
+async function getSoundUrl(soundKey: string): Promise<string | null> {
   const fileName = getSoundFileName(soundKey);
   if (!fileName) return null;
-  return buildSoundUrl(fileName);
+  return await buildSoundUrl(fileName);
 }
 ```
 
 **KHÔNG hardcode URL trong logic**  
-**Luôn gọi helper `buildSoundUrl()` hoặc `getSoundUrl()`**
+**Luôn gọi helper `getOlympiaMediaUrl()` và await URL trước khi fetch audio.**
+
+`getOlympiaMediaUrl()` dùng `await getSupabase()` để lấy client Supabase hiện tại,
+sau đó tạo public URL cho object path `audio/{fileName}.mp3` trong bucket
+`olympia-media`. `SoundRegistry.getUrl()` trả về
+`Promise<string | null>`; `SoundCacheManager` phải await kết quả này trước khi
+fetch và decode audio.
 
 ---
 
