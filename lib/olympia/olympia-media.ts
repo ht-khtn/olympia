@@ -1,13 +1,14 @@
-import { getSupabaseSync } from "@/lib/supabase";
+import getSupabase from "@/lib/supabase";
 
 export type OlympiaMediaFolder = "audio" | "theme" | "video";
 
-export function getOlympiaMediaUrl(
+export async function getOlympiaMediaUrl(
   folder: OlympiaMediaFolder,
   fileName: string
-): string {
+): Promise<string> {
+  const supabase = await getSupabase();
   const objectPath = `${folder}/${fileName}`;
-  const { data } = getSupabaseSync()
+  const { data } = supabase
     .storage
     .from("olympia-media")
     .getPublicUrl(objectPath);

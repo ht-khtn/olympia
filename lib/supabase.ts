@@ -18,10 +18,6 @@ function getBrowserClient(): SupabaseClient {
   return browserClient;
 }
 
-export function getSupabaseSync(): SupabaseClient {
-  return getBrowserClient();
-}
-
 export async function getSupabase(): Promise<SupabaseClient> {
   return getBrowserClient();
 }

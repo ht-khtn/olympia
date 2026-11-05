@@ -33,6 +33,10 @@ import { cn } from '@/utils/cn'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import OlympiaQuestionFrame from '@/components/olympia/shared/game/OlympiaQuestionFrame'
 
+const localWaitingBackground = '/olympia-theme/pointscreen_default_O22_new.png'
+const localDefaultBackground = '/olympia-theme/default_background.png'
+const localResultBackground = '/olympia-theme/Result.png'
+
 type OlympiaGameClientProps = {
   initialData: GameSessionPayload
   sessionId: string
@@ -236,6 +240,32 @@ export function OlympiaGameClient({
   const isGuest = resolvedViewerMode === 'guest'
   const isMc = resolvedViewerMode === 'mc'
   const disableInteractions = isGuest || isMc
+  const [themeUrls, setThemeUrls] = useState({
+    waitingBackground: localWaitingBackground,
+    defaultBackground: localDefaultBackground,
+    resultBackground: localResultBackground,
+  })
+
+  useEffect(() => {
+    let mounted = true
+
+    void Promise.all([
+      getOlympiaMediaUrl('theme', 'pointscreen_default_O22_new.png'),
+      getOlympiaMediaUrl('theme', 'default_background.png'),
+      getOlympiaMediaUrl('theme', 'Result.png'),
+    ])
+      .then(([waitingBackground, defaultBackground, resultBackground]) => {
+        if (!mounted) return
+        setThemeUrls({ waitingBackground, defaultBackground, resultBackground })
+      })
+      .catch(() => {
+        // Keep local theme fallbacks when Storage URL retrieval fails.
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const isRoundTypeValue = (value: string): value is RoundType =>
     value === 'khoi_dong' || value === 'vcnv' || value === 'tang_toc' || value === 've_dich'
@@ -1620,8 +1650,8 @@ export function OlympiaGameClient({
         className="min-h-screen bg-black text-white flex flex-col relative"
         style={{
           backgroundImage: isWaitingScreen
-            ? `url(${getOlympiaMediaUrl('theme', 'pointscreen_default_O22_new.png')})`
-            : `url(${getOlympiaMediaUrl('theme', 'default_background.png')})`,
+            ? `url(${themeUrls.waitingBackground})`
+            : `url(${themeUrls.defaultBackground})`,
           backgroundSize: 'contain',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -1713,7 +1743,7 @@ export function OlympiaGameClient({
             <div
               className="absolute inset-0"
               style={{
-                backgroundImage: `url(${getOlympiaMediaUrl('theme', 'Result.png')})`,
+                backgroundImage: `url(${themeUrls.resultBackground})`,
                 backgroundSize: 'contain',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',

@@ -447,6 +447,23 @@ export function HostRoundControls({
   const buzzerFormRef = useRef<HTMLFormElement | null>(null)
   const targetFormRef = useRef<HTMLFormElement | null>(null)
   const hostAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [hostAudioUrl, setHostAudioUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    void getOlympiaMediaUrl('audio', 'khuyet.mp3')
+      .then((url) => {
+        if (mounted) setHostAudioUrl(url)
+      })
+      .catch(() => {
+        if (mounted) setHostAudioUrl(null)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const roundById = useMemo(() => {
     const map = new Map<string, MatchRound>()
@@ -778,7 +795,7 @@ export function HostRoundControls({
         </div>
         <audio
           ref={hostAudioRef}
-          src={getOlympiaMediaUrl('audio', 'khuyet.mp3')}
+          src={hostAudioUrl ?? undefined}
           preload="auto"
           hidden
         />

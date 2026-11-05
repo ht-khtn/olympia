@@ -92,7 +92,7 @@ export class SoundCacheManager {
   }
 
   private async fetchAndDecode(soundKey: string): Promise<AudioBuffer | null> {
-    const url = this.registry.getUrl(soundKey);
+    const url = await this.registry.getUrl(soundKey);
     if (!url) {
       console.warn(`[Sound] No URL for ${soundKey}`);
       return null;

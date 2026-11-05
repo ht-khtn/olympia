@@ -7,6 +7,8 @@ import { getOlympiaMediaUrl } from '@/lib/olympia/olympia-media'
 import type { AnswerRow, PlayerRow, LiveSessionRow } from '@/types/olympia/game'
 import OlympiaQuestionFrame from '@/components/olympia/shared/game/OlympiaQuestionFrame'
 
+const localResultBackground = '/olympia-theme/Result.png'
+
 type JsonValue =
     | string
     | number
@@ -48,10 +50,27 @@ type Props = {
 
 export function AnswersOverlay({ session, match, players, embedded }: Props) {
     const [answers, setAnswers] = useState<AnswerRow[]>([])
+    const [resultBackground, setResultBackground] = useState(localResultBackground)
     const supabaseRef = useRef<SupabaseClient | null>(null)
     const answersChannelRef = useRef<RealtimeChannel | null>(null)
 
     const currentQuestionId = session.current_round_question_id
+
+    useEffect(() => {
+        let mounted = true
+
+        void getOlympiaMediaUrl('theme', 'Result.png')
+            .then((url) => {
+                if (mounted) setResultBackground(url)
+            })
+            .catch(() => {
+                // Keep the local theme fallback when Storage URL retrieval fails.
+            })
+
+        return () => {
+            mounted = false
+        }
+    }, [])
 
     const fetchAnswers = useCallback(async () => {
         if (!currentQuestionId) {
@@ -184,7 +203,7 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
             <div
                 className="absolute inset-0"
                 style={{
-                    backgroundImage: `url(${getOlympiaMediaUrl('theme', 'Result.png')})`,
+                    backgroundImage: `url(${resultBackground})`,
                     backgroundSize: 'contain',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',

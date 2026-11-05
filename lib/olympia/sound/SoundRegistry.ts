@@ -18,11 +18,11 @@ export class SoundRegistry {
     return def?.file || null;
   }
 
-  getUrl(soundKey: string): string | null {
+  async getUrl(soundKey: string): Promise<string | null> {
     const fileName = this.getFileName(soundKey);
     if (!fileName) return null;
 
-    return getOlympiaMediaUrl("audio", `${fileName}.mp3`);
+    return await getOlympiaMediaUrl("audio", `${fileName}.mp3`);
   }
 
   getVolume(soundKey: string): number {
