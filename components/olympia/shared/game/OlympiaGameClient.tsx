@@ -26,6 +26,7 @@ import {
   SoundRegistry,
 } from '@/lib/olympia/sound'
 import type { GameEventPayload, RoundType } from '@/lib/olympia/sound'
+import { getOlympiaMediaUrl } from '@/lib/olympia/olympia-media'
 import { clearGuestMediaCommandAction } from '@/actions/olympia/realtime.actions'
 
 import { cn } from '@/utils/cn'
@@ -1619,8 +1620,8 @@ export function OlympiaGameClient({
         className="min-h-screen bg-black text-white flex flex-col relative"
         style={{
           backgroundImage: isWaitingScreen
-            ? `url('/olympia-theme/pointscreen_default_O22_new.png')`
-            : `url('/olympia-theme/default_background.png')`,
+            ? `url(${getOlympiaMediaUrl('theme', 'pointscreen_default_O22_new.png')})`
+            : `url(${getOlympiaMediaUrl('theme', 'default_background.png')})`,
           backgroundSize: 'contain',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -1712,7 +1713,7 @@ export function OlympiaGameClient({
             <div
               className="absolute inset-0"
               style={{
-                backgroundImage: `url('/olympia-theme/Result.png')`,
+                backgroundImage: `url(${getOlympiaMediaUrl('theme', 'Result.png')})`,
                 backgroundSize: 'contain',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',

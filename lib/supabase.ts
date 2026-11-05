@@ -4,7 +4,7 @@ import { getSupabasePublicEnv } from "@/configs/env";
 
 let browserClient: SupabaseClient | null = null;
 
-export async function getSupabase(): Promise<SupabaseClient> {
+function getBrowserClient(): SupabaseClient {
   if (typeof window === "undefined") {
     throw new Error(
       "getSupabase() should only be called client-side. Use getSupabaseServer() on the server."
@@ -16,6 +16,14 @@ export async function getSupabase(): Promise<SupabaseClient> {
   const { url, anonKey } = getSupabasePublicEnv();
   browserClient = createBrowserClient(url, anonKey);
   return browserClient;
+}
+
+export function getSupabaseSync(): SupabaseClient {
+  return getBrowserClient();
+}
+
+export async function getSupabase(): Promise<SupabaseClient> {
+  return getBrowserClient();
 }
 
 export default getSupabase;

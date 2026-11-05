@@ -1,5 +1,6 @@
 import type { OlympiaSoundConfig, SoundDef } from "./SoundTypes";
 import soundConfig from "@/lib/olympia/olympia-sound-config.json";
+import { getOlympiaMediaUrl } from "@/lib/olympia/olympia-media";
 
 export class SoundRegistry {
   private config: OlympiaSoundConfig;
@@ -21,8 +22,7 @@ export class SoundRegistry {
     const fileName = this.getFileName(soundKey);
     if (!fileName) return null;
 
-    const encoded = fileName.replace(/ /g, "%20");
-    return `https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public/olympia/Olympia%20Sound/${encoded}.mp3`;
+    return getOlympiaMediaUrl("audio", `${fileName}.mp3`);
   }
 
   getVolume(soundKey: string): number {

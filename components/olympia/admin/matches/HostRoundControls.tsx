@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Timer, Play, Pause, Square } from 'lucide-react'
 import { subscribeHostSessionUpdate } from '@/components/olympia/admin/matches/host-events'
 import { getCountdownMs, getDurationInputConstraints } from '@/lib/olympia/olympia-config'
+import { getOlympiaMediaUrl } from '@/lib/olympia/olympia-media'
 
 export type ActionState = {
   error?: string | null
@@ -777,7 +778,7 @@ export function HostRoundControls({
         </div>
         <audio
           ref={hostAudioRef}
-          src="https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public/olympia/Olympia%20Sound/khuyet.mp3"
+          src={getOlympiaMediaUrl('audio', 'khuyet.mp3')}
           preload="auto"
           hidden
         />

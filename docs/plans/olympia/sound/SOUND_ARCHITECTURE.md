@@ -393,7 +393,7 @@ class SoundEventDispatcher {
 
 **Public URL Format (FIXED):**
 ```
-https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public/olympia/Olympia%20Sound/{fileName}.mp3
+olympia-media/audio/{fileName}.mp3
 ```
 
 **Encoding Rule:**
@@ -407,10 +407,7 @@ https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public/olympia/Olympi
 // Location: lib/olympia/olympia-sound-url.ts
 
 function buildSoundUrl(fileName: string): string {
-  const baseUrl = "https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public/olympia/Olympia%20Sound";
-  // Replace space với %20
-  const encodedFileName = fileName.replace(/ /g, "%20");
-  return `${baseUrl}/${encodedFileName}.mp3`;
+  return getOlympiaMediaUrl("audio", `${fileName}.mp3`);
 }
 
 // Lấy fileName từ config
@@ -1437,7 +1434,7 @@ cleanup() {
    - Nếu sau này integrate SW → có thể optimize thêm
 
 5. **URL Format Fixed**
-   - Giả định: `https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public/olympia/Olympia%20Sound/{fileName}.mp3` (ĐÚNG)
+   - Quy ước object path: `olympia-media/audio/{fileName}.mp3`
    - KHÔNG thay đổi trong tương lai gần
 
 6. **No Sound Duration Config**

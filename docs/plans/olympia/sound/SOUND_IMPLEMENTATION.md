@@ -316,9 +316,8 @@ export const OLYMPIA_SOUND_CONFIG = {
 }
 
 export const SUPABASE_SOUND_CONFIG = {
-  BUCKET: "olympia",
-  FOLDER: "Olympia Sound",
-  BASE_URL: "https://fbxrlpiigoviphaxmstd.supabase.co/storage/v1/object/public"
+  BUCKET: "olympia-media",
+  FOLDER: "audio"
 }
 ```
 

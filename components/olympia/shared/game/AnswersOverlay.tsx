@@ -3,6 +3,7 @@
 import { useMemo, useEffect, useRef, useCallback, useState } from 'react'
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import getSupabase from '@/lib/supabase'
+import { getOlympiaMediaUrl } from '@/lib/olympia/olympia-media'
 import type { AnswerRow, PlayerRow, LiveSessionRow } from '@/types/olympia/game'
 import OlympiaQuestionFrame from '@/components/olympia/shared/game/OlympiaQuestionFrame'
 
@@ -183,7 +184,7 @@ export function AnswersOverlay({ session, match, players, embedded }: Props) {
             <div
                 className="absolute inset-0"
                 style={{
-                    backgroundImage: `url('/olympia-theme/Result.png')`,
+                    backgroundImage: `url(${getOlympiaMediaUrl('theme', 'Result.png')})`,
                     backgroundSize: 'contain',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
