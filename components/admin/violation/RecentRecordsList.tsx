@@ -10,36 +10,36 @@ type RecentRecordRow = {
   score: number | null
   note: string | null
   classes:
-    | { id: string; name: string | null }
-    | { id: string; name: string | null }[]
-    | null
+  | { id: string; name: string | null }
+  | { id: string; name: string | null }[]
+  | null
   criteria:
-    | { id: string | number; name: string | null }
-    | { id: string | number; name: string | null }[]
-    | null
+  | { id: string | number; name: string | null }
+  | { id: string | number; name: string | null }[]
+  | null
   users:
-    | {
-        user_profiles:
-          | { full_name: string | null }[]
-          | { full_name: string | null }
-          | null
-        user_name: string | null
-      }
-    | {
-        user_profiles:
-          | { full_name: string | null }[]
-          | { full_name: string | null }
-          | null
-        user_name: string | null
-      }[]
+  | {
+    user_profiles:
+    | { full_name: string | null }[]
+    | { full_name: string | null }
     | null
+    user_name: string | null
+  }
+  | {
+    user_profiles:
+    | { full_name: string | null }[]
+    | { full_name: string | null }
+    | null
+    user_name: string | null
+  }[]
+  | null
 }
 
 export default async function RecentRecordsList() {
   let supabase: Awaited<ReturnType<typeof getSupabaseServer>> | null = null
   try {
     supabase = await getSupabaseServer()
-  } catch {}
+  } catch { }
   if (!supabase) return null
 
   const { data: userRes } = await supabase.auth.getUser()
@@ -52,17 +52,17 @@ export default async function RecentRecordsList() {
   if (!allowedWriteClassIds || !allowedWriteClassIds.size) return null
 
   // Filter to records from start of today
-  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0)
+  const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0)
   const startIso = startOfDay.toISOString()
   // Parallelize records fetch with simpler query (limit 50 for faster initial load)
   const { data: rows, error: rowsErr } = await supabase
     .from('records')
     .select('id, created_at, student_id, class_id, score, note, classes(id,name), criteria(name,id), users:student_id(user_profiles(full_name), user_name)')
-  .is('deleted_at', null)
-  .in('class_id', Array.from(allowedWriteClassIds))
-  .gte('created_at', startIso)
-  .order('created_at', { ascending: false })
-  .limit(50)
+    .is('deleted_at', null)
+    .in('class_id', Array.from(allowedWriteClassIds))
+    .gte('created_at', startIso)
+    .order('created_at', { ascending: false })
+    .limit(50)
 
   if (rowsErr) return null
 
@@ -92,7 +92,7 @@ export default async function RecentRecordsList() {
         return (
           <div key={r.id} className="bg-white rounded-lg p-3 mb-3 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="w-16 text-sm font-medium text-red-600 text-right flex-shrink-0">{r.score}</div>
+              <div className="w-16 text-sm font-medium text-red-600 text-right shrink-0">{r.score}</div>
               <div className="flex-1 min-w-0 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-semibold text-foreground">{criteriaLabel}</div>

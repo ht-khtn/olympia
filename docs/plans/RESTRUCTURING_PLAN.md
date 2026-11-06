@@ -9,24 +9,26 @@ This document outlines the complete restructuring of the EduSync application int
 ## Route Group Mapping
 
 ### Admin Routes (`/admin/*`)
+
 **Purpose**: Internal management, dashboards, data entry, and administrative functions
 
-| Current Path | New Path | Component | Access Control |
-|-------------|----------|-----------|----------------|
-| `/leaderboard` | `/admin/leaderboard` | LeaderboardPageContent | CC/Admin |
-| `/violation-entry` | `/admin/violation-entry` | ViolationEntryPageContent | CC only |
-| `/score-entry` | `/admin/score-entry` | ScoreEntryPageContent | CC only |
-| `/violation-history` | `/admin/violation-history` | ViolationHistoryPageContent | CC/Admin |
-| `/violation-stats` | `/admin/violation-stats` | ViolationStatsPageContent | CC/Admin |
+| Current Path         | New Path                   | Component                   | Access Control |
+| -------------------- | -------------------------- | --------------------------- | -------------- |
+| `/leaderboard`       | `/admin/leaderboard`       | LeaderboardPageContent      | CC/Admin       |
+| `/violation-entry`   | `/admin/violation-entry`   | ViolationEntryPageContent   | CC only        |
+| `/score-entry`       | `/admin/score-entry`       | ScoreEntryPageContent       | CC only        |
+| `/violation-history` | `/admin/violation-history` | ViolationHistoryPageContent | CC/Admin       |
+| `/violation-stats`   | `/admin/violation-stats`   | ViolationStatsPageContent   | CC/Admin       |
 
 ### Client Routes (`/client/*`)
+
 **Purpose**: Student-facing pages and public interfaces
 
-| Current Path | New Path | Component | Access Control |
-|-------------|----------|-----------|----------------|
-| `/` (home) | `/client` | HomePage | Public |
-| `/my-violations` | `/client/my-violations` | MyViolationsPageContent | S/YUM only |
-| `/login` | `/login` | LoginPageContent | Public (stays at root) |
+| Current Path     | New Path                | Component               | Access Control         |
+| ---------------- | ----------------------- | ----------------------- | ---------------------- |
+| `/` (home)       | `/client`               | HomePage                | Public                 |
+| `/my-violations` | `/client/my-violations` | MyViolationsPageContent | S/YUM only             |
+| `/login`         | `/login`                | LoginPageContent        | Public (stays at root) |
 
 **Note**: Login page remains at root level (`/login`) as it's a public authentication entry point.
 
@@ -111,19 +113,12 @@ types/                                # No changes
 **File: `components/admin/AdminSidebar.tsx`**
 
 ```tsx
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Trophy,
-  FileText,
-  ClipboardList,
-  BarChart3,
-  History,
-} from "lucide-react"
+import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, Trophy, FileText, ClipboardList, BarChart3, History } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -135,8 +130,8 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-} from "@/components/ui/sidebar"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 const adminNavItems = [
   {
@@ -169,16 +164,19 @@ const adminNavItems = [
     href: "/admin/violation-stats",
     icon: BarChart3,
   },
-]
+];
 
 export function AdminSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-3">
-          <Link href="/admin" className="font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+          <Link
+            href="/admin"
+            className="bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text font-semibold tracking-tight text-transparent"
+          >
             EduSync Admin
           </Link>
         </div>
@@ -190,10 +188,7 @@ export function AdminSidebar() {
             <SidebarMenu>
               {adminNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href}
-                  >
+                  <SidebarMenuButton asChild isActive={pathname === item.href}>
                     <Link href={item.href}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -206,55 +201,53 @@ export function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="p-4 text-xs text-muted-foreground">
-          EduSync v1.0
-        </div>
+        <div className="text-muted-foreground p-4 text-xs">EduSync v1.0</div>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
 ```
 
 **File: `components/admin/AdminHeader.tsx`**
 
 ```tsx
-"use client"
+"use client";
 
-import React from "react"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import React from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Bell, User, LogOut } from "lucide-react"
-import NotificationsBell from "@/components/common/NotificationsBell"
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Bell, User, LogOut } from "lucide-react";
+import NotificationsBell from "@/components/common/NotificationsBell";
 
 interface AdminHeaderProps {
-  user?: { id: string } | null
+  user?: { id: string } | null;
 }
 
 export function AdminHeader({ user }: AdminHeaderProps) {
-  const router = useRouter()
-  const pathname = usePathname()
+  const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/login')
-      router.refresh()
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
     } catch (error) {
-      console.error('Logout failed:', error)
+      console.error("Logout failed:", error);
     }
-  }
+  };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
       <div className="flex h-14 items-center gap-4 px-4">
         <SidebarTrigger />
         <div className="flex-1" />
@@ -290,28 +283,26 @@ export function AdminHeader({ user }: AdminHeaderProps) {
         </nav>
       </div>
     </header>
-  )
+  );
 }
 ```
 
 **File: `components/admin/AdminMainContent.tsx`**
 
 ```tsx
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 interface AdminMainContentProps {
-  children: React.ReactNode
-  className?: string
+  children: React.ReactNode;
+  className?: string;
 }
 
 export function AdminMainContent({ children, className }: AdminMainContentProps) {
   return (
     <main className={cn("flex-1 overflow-y-auto p-6", className)}>
-      <div className="mx-auto max-w-7xl">
-        {children}
-      </div>
+      <div className="mx-auto max-w-7xl">{children}</div>
     </main>
-  )
+  );
 }
 ```
 
@@ -320,43 +311,46 @@ export function AdminMainContent({ children, className }: AdminMainContentProps)
 **File: `components/client/ClientHeader.tsx`**
 
 ```tsx
-"use client"
+"use client";
 
-import React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { User, LogOut } from "lucide-react"
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { User, LogOut } from "lucide-react";
 
 interface ClientHeaderProps {
-  user?: { id: string } | null
-  hasAdminAccess?: boolean
+  user?: { id: string } | null;
+  hasAdminAccess?: boolean;
 }
 
 export function ClientHeader({ user, hasAdminAccess }: ClientHeaderProps) {
-  const router = useRouter()
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/login')
-      router.refresh()
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
     } catch (error) {
-      console.error('Logout failed:', error)
+      console.error("Logout failed:", error);
     }
-  }
+  };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/client" className="font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+        <Link
+          href="/client"
+          className="bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text font-semibold tracking-tight text-transparent"
+        >
           EduSync
         </Link>
         <div className="flex items-center gap-4">
@@ -396,63 +390,55 @@ export function ClientHeader({ user, hasAdminAccess }: ClientHeaderProps) {
         </div>
       </nav>
     </header>
-  )
+  );
 }
 ```
 
 **File: `components/client/ClientHero.tsx`**
 
 ```tsx
-import { ReactNode } from "react"
-import { cn } from "@/lib/utils"
+import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface ClientHeroProps {
-  title?: string
-  description?: string
-  children?: ReactNode
-  className?: string
+  title?: string;
+  description?: string;
+  children?: ReactNode;
+  className?: string;
 }
 
-export function ClientHero({ 
-  title = "EduSync", 
+export function ClientHero({
+  title = "EduSync",
   description = "Hệ thống hỗ trợ quản lý phong trào và thi đua dành cho học sinh THPT.",
   children,
-  className
+  className,
 }: ClientHeroProps) {
   return (
-    <section className={cn("border-b bg-gradient-to-b from-background to-muted/20", className)}>
+    <section className={cn("from-background to-muted/20 border-b bg-linear-to-b", className)}>
       <div className="mx-auto max-w-6xl px-4 py-12 text-center">
         <div className="space-y-3">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            {title}
-          </h1>
-          <p className="text-base text-muted-foreground sm:text-lg">
-            {description}
-          </p>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{title}</h1>
+          <p className="text-muted-foreground text-base sm:text-lg">{description}</p>
         </div>
         {children && <div className="mt-8">{children}</div>}
       </div>
     </section>
-  )
+  );
 }
 ```
 
 **File: `components/client/ClientMainContent.tsx`**
 
 ```tsx
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 interface ClientMainContentProps {
-  children: React.ReactNode
-  className?: string
+  children: React.ReactNode;
+  className?: string;
 }
 
 export function ClientMainContent({ children, className }: ClientMainContentProps) {
-  return (
-    <main className={cn("mx-auto max-w-6xl px-4 py-8", className)}>
-      {children}
-    </main>
-  )
+  return <main className={cn("mx-auto max-w-6xl px-4 py-8", className)}>{children}</main>;
 }
 ```
 
@@ -465,66 +451,61 @@ export function ClientMainContent({ children, className }: ClientMainContentProp
 **File: `app/(admin)/layout.tsx`**
 
 ```tsx
-import type { Metadata } from "next"
-import { redirect } from "next/navigation"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { AdminSidebar } from "@/components/admin/AdminSidebar"
-import { AdminHeader } from "@/components/admin/AdminHeader"
-import { AdminMainContent } from "@/components/admin/AdminMainContent"
-import getSupabaseServer from "@/lib/supabase-server"
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminMainContent } from "@/components/admin/AdminMainContent";
+import getSupabaseServer from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
   title: "Admin Panel - EduSync",
   description: "EduSync administrative panel",
-}
+};
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export default async function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  let user: { id: string } | null = null
-  let hasAdminAccess = false
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  let user: { id: string } | null = null;
+  let hasAdminAccess = false;
 
   try {
-    const supabase = await getSupabaseServer()
-    const { data: userRes } = await supabase.auth.getUser()
-    const authUid = userRes?.user?.id
-    
+    const supabase = await getSupabaseServer();
+    const { data: userRes } = await supabase.auth.getUser();
+    const authUid = userRes?.user?.id;
+
     if (!authUid) {
-      redirect('/login')
+      redirect("/login");
     }
 
     const { data: appUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('auth_uid', authUid)
-      .maybeSingle()
+      .from("users")
+      .select("id")
+      .eq("auth_uid", authUid)
+      .maybeSingle();
 
-    const appUserId = appUser?.id as string | undefined
+    const appUserId = appUser?.id as string | undefined;
 
     if (!appUserId) {
-      redirect('/login')
+      redirect("/login");
     }
 
     const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role_id')
-      .eq('user_id', appUserId)
+      .from("user_roles")
+      .select("role_id")
+      .eq("user_id", appUserId);
 
-    hasAdminAccess = Array.isArray(roles) && roles.some(r => 
-      r.role_id === 'CC' || r.role_id === 'Admin'
-    )
+    hasAdminAccess =
+      Array.isArray(roles) && roles.some((r) => r.role_id === "CC" || r.role_id === "Admin");
 
     if (!hasAdminAccess) {
-      redirect('/client')
+      redirect("/client");
     }
 
-    user = { id: appUserId }
+    user = { id: appUserId };
   } catch (error) {
-    redirect('/login')
+    redirect("/login");
   }
 
   return (
@@ -532,12 +513,10 @@ export default async function AdminLayout({
       <AdminSidebar />
       <SidebarInset>
         <AdminHeader user={user} />
-        <AdminMainContent>
-          {children}
-        </AdminMainContent>
+        <AdminMainContent>{children}</AdminMainContent>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }
 ```
 
@@ -546,54 +525,49 @@ export default async function AdminLayout({
 **File: `app/(client)/layout.tsx`**
 
 ```tsx
-import type { Metadata } from "next"
-import { ClientHeader } from "@/components/client/ClientHeader"
-import getSupabaseServer from "@/lib/supabase-server"
+import type { Metadata } from "next";
+import { ClientHeader } from "@/components/client/ClientHeader";
+import getSupabaseServer from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
   title: "EduSync",
   description: "Hệ thống hỗ trợ quản lý phong trào và thi đua dành cho học sinh THPT",
-}
+};
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export default async function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  let user: { id: string } | null = null
-  let hasAdminAccess = false
+export default async function ClientLayout({ children }: { children: React.ReactNode }) {
+  let user: { id: string } | null = null;
+  let hasAdminAccess = false;
 
   try {
-    const supabase = await getSupabaseServer()
-    const { data: userRes } = await supabase.auth.getUser()
-    const authUid = userRes?.user?.id
+    const supabase = await getSupabaseServer();
+    const { data: userRes } = await supabase.auth.getUser();
+    const authUid = userRes?.user?.id;
 
     if (authUid) {
       const { data: appUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_uid', authUid)
-        .maybeSingle()
+        .from("users")
+        .select("id")
+        .eq("auth_uid", authUid)
+        .maybeSingle();
 
-      const appUserId = appUser?.id as string | undefined
+      const appUserId = appUser?.id as string | undefined;
 
       if (appUserId) {
-        user = { id: appUserId }
+        user = { id: appUserId };
 
         const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role_id')
-          .eq('user_id', appUserId)
+          .from("user_roles")
+          .select("role_id")
+          .eq("user_id", appUserId);
 
-        hasAdminAccess = Array.isArray(roles) && roles.some(r => 
-          r.role_id === 'CC' || r.role_id === 'Admin'
-        )
+        hasAdminAccess =
+          Array.isArray(roles) && roles.some((r) => r.role_id === "CC" || r.role_id === "Admin");
       }
     }
   } catch {
-    user = null
+    user = null;
   }
 
   return (
@@ -601,7 +575,7 @@ export default async function ClientLayout({
       <ClientHeader user={user} hasAdminAccess={hasAdminAccess} />
       {children}
     </>
-  )
+  );
 }
 ```
 
@@ -610,39 +584,39 @@ export default async function ClientLayout({
 **File: `app/layout.tsx`**
 
 ```tsx
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import "./globals.css"
-import { Toaster } from "@/components/ui/sonner"
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-})
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-})
+});
 
 export const metadata: Metadata = {
   title: "EduSync",
   description: "Hệ thống hỗ trợ quản lý phong trào và thi đua dành cho học sinh THPT",
-}
+};
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-50 dark:bg-zinc-900`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} bg-neutral-50 antialiased dark:bg-zinc-900`}
+      >
         {children}
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
-  )
+  );
 }
 ```
 
@@ -655,11 +629,11 @@ export default function RootLayout({
 **File: `app/(admin)/admin/page.tsx`**
 
 ```tsx
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, FileText, Trophy, Users } from "lucide-react"
-import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, FileText, Trophy, Users } from "lucide-react";
+import Link from "next/link";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default function AdminDashboardPage() {
   const dashboardCards = [
@@ -687,15 +661,13 @@ export default function AdminDashboardPage() {
       icon: BarChart3,
       href: "/admin/violation-stats",
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to the EduSync admin panel
-        </p>
+        <p className="text-muted-foreground">Welcome to the EduSync admin panel</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -703,7 +675,7 @@ export default function AdminDashboardPage() {
           <Link key={card.href} href={card.href}>
             <Card className="transition-all hover:shadow-md">
               <CardHeader>
-                <card.icon className="h-8 w-8 text-primary" />
+                <card.icon className="text-primary h-8 w-8" />
                 <CardTitle className="mt-4">{card.title}</CardTitle>
                 <CardDescription>{card.description}</CardDescription>
               </CardHeader>
@@ -712,35 +684,35 @@ export default function AdminDashboardPage() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 ```
 
 **File: `app/(admin)/admin/leaderboard/page.tsx`**
 
 ```tsx
-import { LeaderboardPageContent } from '@/components/leaderboard/LeaderboardComponents'
+import { LeaderboardPageContent } from "@/components/leaderboard/LeaderboardComponents";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default function LeaderboardPage() {
-  return <LeaderboardPageContent />
+  return <LeaderboardPageContent />;
 }
 ```
 
 **File: `app/(admin)/admin/violation-entry/page.tsx`**
 
 ```tsx
-import { ViolationEntryPageContent } from '@/components/violation-entry/ViolationEntryComponents'
-import QueryToasts from '@/components/common/QueryToasts'
-import RecordsRealtimeListener from '@/components/violation/RecordsRealtimeListener'
+import { ViolationEntryPageContent } from "@/components/violation-entry/ViolationEntryComponents";
+import QueryToasts from "@/components/common/QueryToasts";
+import RecordsRealtimeListener from "@/components/violation/RecordsRealtimeListener";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export default async function ViolationEntryPage({ 
-  searchParams 
-}: { 
-  searchParams?: { ok?: string, error?: string } 
+export default async function ViolationEntryPage({
+  searchParams,
+}: {
+  searchParams?: { ok?: string; error?: string };
 }) {
   return (
     <>
@@ -748,51 +720,47 @@ export default async function ViolationEntryPage({
       <QueryToasts ok={searchParams?.ok} error={searchParams?.error} />
       <RecordsRealtimeListener />
     </>
-  )
+  );
 }
 ```
 
 **File: `app/(admin)/admin/score-entry/page.tsx`**
 
 ```tsx
-import { ScoreEntryPageContent } from "@/components/score-entry/ScoreEntryComponents"
+import { ScoreEntryPageContent } from "@/components/score-entry/ScoreEntryComponents";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default function ScoreEntryPage() {
-  return <ScoreEntryPageContent />
+  return <ScoreEntryPageContent />;
 }
 ```
 
 **File: `app/(admin)/admin/violation-history/page.tsx`**
 
 ```tsx
-import { ViolationHistoryPageContent } from '@/components/violation-history/ViolationHistoryComponents'
-import RecordsRealtimeListener from '@/components/violation/RecordsRealtimeListener'
+import { ViolationHistoryPageContent } from "@/components/violation-history/ViolationHistoryComponents";
+import RecordsRealtimeListener from "@/components/violation/RecordsRealtimeListener";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export default function ViolationHistoryPage({ 
-  searchParams 
-}: { 
-  searchParams?: any 
-}) {
+export default function ViolationHistoryPage({ searchParams }: { searchParams?: any }) {
   return (
     <>
       <ViolationHistoryPageContent searchParams={searchParams} />
       <RecordsRealtimeListener />
     </>
-  )
+  );
 }
 ```
 
 **File: `app/(admin)/admin/violation-stats/page.tsx`**
 
 ```tsx
-import ViolationStatsPageContent from '@/components/violation-stats/Page'
-import RecordsRealtimeListener from '@/components/violation/RecordsRealtimeListener'
+import ViolationStatsPageContent from "@/components/violation-stats/Page";
+import RecordsRealtimeListener from "@/components/violation/RecordsRealtimeListener";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default function ViolationStatsPage() {
   return (
@@ -800,7 +768,7 @@ export default function ViolationStatsPage() {
       <RecordsRealtimeListener />
       <ViolationStatsPageContent />
     </>
-  )
+  );
 }
 ```
 
@@ -809,29 +777,29 @@ export default function ViolationStatsPage() {
 **File: `app/(client)/client/page.tsx`**
 
 ```tsx
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { ClientHero } from '@/components/client/ClientHero'
-import { ClientMainContent } from '@/components/client/ClientMainContent'
-import getSupabaseServer from '@/lib/supabase-server'
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ClientHero } from "@/components/client/ClientHero";
+import { ClientMainContent } from "@/components/client/ClientMainContent";
+import getSupabaseServer from "@/lib/supabase-server";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function ClientHomePage() {
-  let user: { id?: string } | null = null
-  
+  let user: { id?: string } | null = null;
+
   try {
-    const supabase = await getSupabaseServer()
-    const { data } = await supabase.auth.getUser()
-    user = data?.user ?? null
+    const supabase = await getSupabaseServer();
+    const { data } = await supabase.auth.getUser();
+    user = data?.user ?? null;
   } catch {
-    user = null
+    user = null;
   }
 
   return (
     <>
       <ClientHero>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
           {!user && (
             <Button asChild size="lg">
               <Link href="/login">Đăng nhập</Link>
@@ -846,56 +814,53 @@ export default async function ClientHomePage() {
       <ClientMainContent>
         <section id="guide" className="py-16 text-center">
           <h2 className="text-lg font-semibold tracking-tight">Hướng dẫn</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Nội dung hướng dẫn sẽ được cập nhật.
-          </p>
+          <p className="text-muted-foreground mt-2 text-sm">Nội dung hướng dẫn sẽ được cập nhật.</p>
         </section>
       </ClientMainContent>
     </>
-  )
+  );
 }
 ```
 
 **File: `app/(client)/client/my-violations/page.tsx`**
 
 ```tsx
-import { MyViolationsPageContent } from '@/components/my-violations/MyViolationsComponents'
-import RecordsRealtimeListener from '@/components/violation/RecordsRealtimeListener'
-import { ClientMainContent } from '@/components/client/ClientMainContent'
-import getSupabaseServer from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
+import { MyViolationsPageContent } from "@/components/my-violations/MyViolationsComponents";
+import RecordsRealtimeListener from "@/components/violation/RecordsRealtimeListener";
+import { ClientMainContent } from "@/components/client/ClientMainContent";
+import getSupabaseServer from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function MyViolationsPage() {
   try {
-    const supabase = await getSupabaseServer()
-    const { data: userRes } = await supabase.auth.getUser()
-    const authUid = userRes?.user?.id
-    
-    if (!authUid) redirect('/login')
+    const supabase = await getSupabaseServer();
+    const { data: userRes } = await supabase.auth.getUser();
+    const authUid = userRes?.user?.id;
+
+    if (!authUid) redirect("/login");
 
     const { data: appUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('auth_uid', authUid)
-      .maybeSingle()
+      .from("users")
+      .select("id")
+      .eq("auth_uid", authUid)
+      .maybeSingle();
 
-    const appUserId = appUser?.id as string | undefined
-    if (!appUserId) redirect('/login')
+    const appUserId = appUser?.id as string | undefined;
+    if (!appUserId) redirect("/login");
 
     const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role_id')
-      .eq('user_id', appUserId)
+      .from("user_roles")
+      .select("role_id")
+      .eq("user_id", appUserId);
 
-    const hasSelfRole = Array.isArray(roles) && roles.some(r => 
-      r.role_id === 'S' || r.role_id === 'YUM'
-    )
+    const hasSelfRole =
+      Array.isArray(roles) && roles.some((r) => r.role_id === "S" || r.role_id === "YUM");
 
-    if (!hasSelfRole) redirect('/client')
+    if (!hasSelfRole) redirect("/client");
   } catch {
-    redirect('/login')
+    redirect("/login");
   }
 
   return (
@@ -903,7 +868,7 @@ export default async function MyViolationsPage() {
       <MyViolationsPageContent />
       <RecordsRealtimeListener />
     </ClientMainContent>
-  )
+  );
 }
 ```
 
@@ -912,45 +877,44 @@ export default async function MyViolationsPage() {
 **File: `app/page.tsx`**
 
 ```tsx
-import { redirect } from 'next/navigation'
-import getSupabaseServer from '@/lib/supabase-server'
+import { redirect } from "next/navigation";
+import getSupabaseServer from "@/lib/supabase-server";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function RootPage() {
   try {
-    const supabase = await getSupabaseServer()
-    const { data: userRes } = await supabase.auth.getUser()
-    const authUid = userRes?.user?.id
+    const supabase = await getSupabaseServer();
+    const { data: userRes } = await supabase.auth.getUser();
+    const authUid = userRes?.user?.id;
 
     if (authUid) {
       const { data: appUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_uid', authUid)
-        .maybeSingle()
+        .from("users")
+        .select("id")
+        .eq("auth_uid", authUid)
+        .maybeSingle();
 
-      const appUserId = appUser?.id as string | undefined
+      const appUserId = appUser?.id as string | undefined;
 
       if (appUserId) {
         const { data: roles } = await supabase
-          .from('user_roles')
-          .select('role_id')
-          .eq('user_id', appUserId)
+          .from("user_roles")
+          .select("role_id")
+          .eq("user_id", appUserId);
 
-        const hasAdminAccess = Array.isArray(roles) && roles.some(r => 
-          r.role_id === 'CC' || r.role_id === 'Admin'
-        )
+        const hasAdminAccess =
+          Array.isArray(roles) && roles.some((r) => r.role_id === "CC" || r.role_id === "Admin");
 
         if (hasAdminAccess) {
-          redirect('/admin')
+          redirect("/admin");
         }
       }
     }
 
-    redirect('/client')
+    redirect("/client");
   } catch {
-    redirect('/client')
+    redirect("/client");
   }
 }
 ```
@@ -962,6 +926,7 @@ export default async function RootPage() {
 **File: `components/NavClient.tsx` (Updated for new routes)**
 
 Update all route references:
+
 - `/leaderboard` → `/admin/leaderboard`
 - `/violation-entry` → `/admin/violation-entry`
 - `/score-entry` → `/admin/score-entry`
@@ -975,12 +940,14 @@ Update all route references:
 ## Migration Checklist
 
 ### Pre-Migration
+
 - [ ] Backup current codebase
 - [ ] Review all business logic in existing pages
 - [ ] Document current authentication flows
 - [ ] List all API endpoints used by pages
 
 ### Phase 1: Layout Components
+
 - [ ] Create `components/admin/AdminSidebar.tsx`
 - [ ] Create `components/admin/AdminHeader.tsx`
 - [ ] Create `components/admin/AdminMainContent.tsx`
@@ -989,11 +956,13 @@ Update all route references:
 - [ ] Create `components/client/ClientMainContent.tsx`
 
 ### Phase 2: Route Group Layouts
+
 - [ ] Create `app/(admin)/layout.tsx`
 - [ ] Create `app/(client)/layout.tsx`
 - [ ] Update `app/layout.tsx`
 
 ### Phase 3: Admin Pages Migration
+
 - [ ] Create `app/(admin)/admin/page.tsx` (dashboard)
 - [ ] Move `leaderboard` to `app/(admin)/admin/leaderboard/page.tsx`
 - [ ] Move `violation-entry` to `app/(admin)/admin/violation-entry/page.tsx`
@@ -1002,19 +971,23 @@ Update all route references:
 - [ ] Move `violation-stats` to `app/(admin)/admin/violation-stats/page.tsx`
 
 ### Phase 4: Client Pages Migration
+
 - [ ] Create `app/(client)/client/page.tsx` (home)
 - [ ] Move `my-violations` to `app/(client)/client/my-violations/page.tsx`
 
 ### Phase 5: Root & Auth
+
 - [ ] Update `app/page.tsx` (redirect logic)
 - [ ] Verify `app/login/page.tsx` still works
 
 ### Phase 6: Navigation Updates
+
 - [ ] Update all route references in `components/NavClient.tsx`
 - [ ] Update all `Link` components in page components
 - [ ] Update redirects in API routes if any
 
 ### Phase 7: Testing
+
 - [ ] Test admin authentication flow
 - [ ] Test client authentication flow
 - [ ] Test all admin pages render correctly
@@ -1027,6 +1000,7 @@ Update all route references:
 - [ ] Test notifications
 
 ### Phase 8: Cleanup
+
 - [ ] Remove old page directories
 - [ ] Remove old layout code
 - [ ] Update any documentation
@@ -1037,6 +1011,7 @@ Update all route references:
 ## Route Reference Guide
 
 ### Admin Routes
+
 ```
 /admin                        → Admin Dashboard
 /admin/leaderboard           → Leaderboard Management
@@ -1047,18 +1022,21 @@ Update all route references:
 ```
 
 ### Client Routes
+
 ```
 /client                      → Student Home
 /client/my-violations        → Personal Violations
 ```
 
 ### Public Routes
+
 ```
 /login                       → Authentication
 /                           → Smart Redirect (admin or client based on role)
 ```
 
 ### API Routes (No Changes)
+
 ```
 /api/auth/logout
 /api/auth/set-session
@@ -1072,6 +1050,7 @@ Update all route references:
 ## Important Notes
 
 ### No Logic Changes
+
 - ✅ All business logic preserved
 - ✅ Database queries unchanged
 - ✅ Supabase integration unchanged
@@ -1080,6 +1059,7 @@ Update all route references:
 - ✅ Hooks unchanged
 
 ### UI/UX Enhancements
+
 - ✅ shadcn/ui components prioritized
 - ✅ Consistent spacing and layout
 - ✅ Improved navigation structure
@@ -1087,12 +1067,14 @@ Update all route references:
 - ✅ Cleaner component hierarchy
 
 ### Performance
+
 - ✅ Route groups for code splitting
 - ✅ Server-side authentication checks
 - ✅ Optimized layouts
 - ✅ Reduced client-side JavaScript
 
 ### Accessibility
+
 - ✅ Proper heading hierarchy
 - ✅ ARIA labels on navigation
 - ✅ Keyboard navigation support
@@ -1102,49 +1084,52 @@ Update all route references:
 
 ## File Migration Map
 
-| Old Location | New Location | Notes |
-|-------------|--------------|-------|
-| `app/layout.tsx` | `app/layout.tsx` | Simplified (removed nav) |
-| `app/page.tsx` | `app/page.tsx` | Now redirects based on role |
-| - | `app/(admin)/layout.tsx` | New admin layout |
-| - | `app/(admin)/admin/page.tsx` | New admin dashboard |
-| `app/leaderboard/page.tsx` | `app/(admin)/admin/leaderboard/page.tsx` | Moved, logic preserved |
-| `app/violation-entry/page.tsx` | `app/(admin)/admin/violation-entry/page.tsx` | Moved, auth removed (in layout) |
-| `app/score-entry/page.tsx` | `app/(admin)/admin/score-entry/page.tsx` | Moved, auth removed (in layout) |
-| `app/violation-history/page.tsx` | `app/(admin)/admin/violation-history/page.tsx` | Moved, logic preserved |
-| `app/violation-stats/page.tsx` | `app/(admin)/admin/violation-stats/page.tsx` | Moved, logic preserved |
-| - | `app/(client)/layout.tsx` | New client layout |
-| `app/page.tsx` (content) | `app/(client)/client/page.tsx` | Home page moved |
-| `app/my-violations/page.tsx` | `app/(client)/client/my-violations/page.tsx` | Moved, auth preserved |
-| `app/login/page.tsx` | `app/login/page.tsx` | Unchanged |
+| Old Location                     | New Location                                   | Notes                           |
+| -------------------------------- | ---------------------------------------------- | ------------------------------- |
+| `app/layout.tsx`                 | `app/layout.tsx`                               | Simplified (removed nav)        |
+| `app/page.tsx`                   | `app/page.tsx`                                 | Now redirects based on role     |
+| -                                | `app/(admin)/layout.tsx`                       | New admin layout                |
+| -                                | `app/(admin)/admin/page.tsx`                   | New admin dashboard             |
+| `app/leaderboard/page.tsx`       | `app/(admin)/admin/leaderboard/page.tsx`       | Moved, logic preserved          |
+| `app/violation-entry/page.tsx`   | `app/(admin)/admin/violation-entry/page.tsx`   | Moved, auth removed (in layout) |
+| `app/score-entry/page.tsx`       | `app/(admin)/admin/score-entry/page.tsx`       | Moved, auth removed (in layout) |
+| `app/violation-history/page.tsx` | `app/(admin)/admin/violation-history/page.tsx` | Moved, logic preserved          |
+| `app/violation-stats/page.tsx`   | `app/(admin)/admin/violation-stats/page.tsx`   | Moved, logic preserved          |
+| -                                | `app/(client)/layout.tsx`                      | New client layout               |
+| `app/page.tsx` (content)         | `app/(client)/client/page.tsx`                 | Home page moved                 |
+| `app/my-violations/page.tsx`     | `app/(client)/client/my-violations/page.tsx`   | Moved, auth preserved           |
+| `app/login/page.tsx`             | `app/login/page.tsx`                           | Unchanged                       |
 
 ---
 
 ## Example Refactor: Leaderboard Page
 
 ### Before
+
 ```tsx
 // app/leaderboard/page.tsx
-import { LeaderboardPageContent } from '@/components/leaderboard/LeaderboardComponents'
-export const dynamic = 'force-dynamic'
+import { LeaderboardPageContent } from "@/components/leaderboard/LeaderboardComponents";
+export const dynamic = "force-dynamic";
 
 export default function LeaderboardPage() {
-  return <LeaderboardPageContent />
+  return <LeaderboardPageContent />;
 }
 ```
 
 ### After
+
 ```tsx
 // app/(admin)/admin/leaderboard/page.tsx
-import { LeaderboardPageContent } from '@/components/leaderboard/LeaderboardComponents'
-export const dynamic = 'force-dynamic'
+import { LeaderboardPageContent } from "@/components/leaderboard/LeaderboardComponents";
+export const dynamic = "force-dynamic";
 
 export default function LeaderboardPage() {
-  return <LeaderboardPageContent />
+  return <LeaderboardPageContent />;
 }
 ```
 
 **Changes:**
+
 - File moved to new location
 - No logic changes
 - Now inherits admin layout (sidebar + header)
@@ -1155,21 +1140,25 @@ export default function LeaderboardPage() {
 ## Testing Strategy
 
 ### Unit Testing
+
 - Test layout components render correctly
 - Test navigation components
 - Test authentication logic in layouts
 
 ### Integration Testing
+
 - Test complete user flows (login → dashboard → features)
 - Test role-based access control
 - Test redirects work correctly
 
 ### Visual Testing
+
 - Verify layouts on different screen sizes
 - Check sidebar behavior (collapsed/expanded)
 - Verify responsive design
 
 ### Performance Testing
+
 - Check page load times
 - Verify no unnecessary re-renders
 - Test with large datasets
@@ -1181,6 +1170,7 @@ export default function LeaderboardPage() {
 If issues arise during migration:
 
 1. **Immediate Rollback**
+
    ```bash
    git reset --hard HEAD~1
    rm -rf .next
@@ -1234,7 +1224,7 @@ If issues arise during migration:
 ✅ Mobile responsive on all pages  
 ✅ Performance maintained or improved  
 ✅ No console errors  
-✅ Tests pass  
+✅ Tests pass
 
 ---
 
